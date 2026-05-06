@@ -1,48 +1,48 @@
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel
 
 from surya.common.polygon import PolygonBox
 
 
-class TableCell(PolygonBox):
-    row_id: int
-    colspan: int
-    within_row_id: int
-    cell_id: int
-    is_header: bool
-    rowspan: int | None = None
-    merge_up: bool = False
-    merge_down: bool = False
-    col_id: int | None = None
-    text_lines: List[dict] | None = None
-
-    @property
-    def label(self):
-        return f'Cell {self.cell_id} {self.rowspan}/{self.colspan}'
-
-
 class TableRow(PolygonBox):
     row_id: int
-    is_header: bool
 
     @property
-    def label(self):
-        return f'Row {self.row_id}'
+    def label(self) -> str:
+        return f"Row {self.row_id}"
 
 
 class TableCol(PolygonBox):
     col_id: int
-    is_header: bool
 
     @property
-    def label(self):
-        return f'Column {self.col_id}'
+    def label(self) -> str:
+        return f"Column {self.col_id}"
+
+
+class TableCell(PolygonBox):
+    """Geometric cell derived from row × column intersection.
+
+    The simple-path TableRecPredictor doesn't return spanning info from the
+    model — colspan/rowspan/header come from the full-path HTML output if
+    needed."""
+
+    row_id: int
+    col_id: int
+    cell_id: int
+
+    @property
+    def label(self) -> str:
+        return f"Cell {self.cell_id}"
 
 
 class TableResult(BaseModel):
-    cells: List[TableCell]
-    unmerged_cells: List[TableCell]
     rows: List[TableRow]
     cols: List[TableCol]
+    cells: List[TableCell]
     image_bbox: List[float]
+    raw: Optional[str] = None  # raw model output
+    html: Optional[str] = None  # populated when full-path was used
+    mode: str = "simple"  # "simple" | "full"
+    error: bool = False

@@ -9,7 +9,6 @@ from PIL import Image
 from tqdm import tqdm
 
 from surya.common.predictor import BasePredictor
-from surya.common.xla import mark_step
 
 from surya.detection.loader import DetectionModelLoader
 from surya.detection.parallel import FakeExecutor
@@ -22,14 +21,12 @@ from surya.detection.heatmap import parallel_get_boxes
 class DetectionPredictor(BasePredictor):
     model_loader_cls = DetectionModelLoader
     batch_size = settings.DETECTOR_BATCH_SIZE
-    default_batch_sizes = {"cpu": 8, "mps": 8, "cuda": 36, "xla": 18}
+    default_batch_sizes = {"cpu": 8, "mps": 8, "cuda": 36}
 
     def __call__(
         self, images: List[Image.Image], batch_size=None, include_maps=False
     ) -> List[TextDetectionResult]:
-        detection_generator = self.batch_detection(
-            images, batch_size=batch_size, static_cache=settings.DETECTOR_STATIC_CACHE
-        )
+        detection_generator = self.batch_detection(images, batch_size=batch_size)
 
         postprocessing_futures = []
         max_workers = min(settings.DETECTOR_POSTPROCESSING_CPU_WORKERS, len(images))
@@ -62,7 +59,7 @@ class DetectionPredictor(BasePredictor):
         return img
 
     def batch_detection(
-        self, images: List, batch_size=None, static_cache=False
+        self, images: List, batch_size=None
     ) -> Generator[Tuple[List[List[np.ndarray]], List[Tuple[int, int]]], None, None]:
         assert all([isinstance(image, Image.Image) for image in images])
         if batch_size is None:
@@ -109,13 +106,9 @@ class DetectionPredictor(BasePredictor):
             image_splits = [self.prepare_image(image) for image in image_splits]
             # Batch images in dim 0
             batch = torch.stack(image_splits, dim=0).to(self.model.dtype)
-            if static_cache:
-                batch = self.pad_to_batch_size(batch, batch_size)
 
             with settings.INFERENCE_MODE():
-                pred = self.model(
-                    pixel_values=batch.to(self.model.device)
-                )  # Moving the to device here fixes issues with xla recompilation
+                pred = self.model(pixel_values=batch.to(self.model.device))
 
             logits = pred.logits
             correct_shape = [
@@ -127,7 +120,6 @@ class DetectionPredictor(BasePredictor):
                 logits = F.interpolate(
                     logits, size=correct_shape, mode="bilinear", align_corners=False
                 )
-            mark_step()
 
             logits = logits.to(torch.float32).cpu().numpy()
             preds = []

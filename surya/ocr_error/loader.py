@@ -1,6 +1,5 @@
 from typing import Optional
 
-import torch
 
 from surya.common.load import ModelLoader
 from surya.logging import get_logger
@@ -40,16 +39,6 @@ class OCRErrorModelLoader(ModelLoader):
             .to(device)
             .eval()
         )
-
-        if settings.COMPILE_ALL or settings.COMPILE_OCR_ERROR:
-            torch._dynamo.config.cache_size_limit = 1
-            torch._dynamo.config.suppress_errors = False
-
-            logger.info(
-                f"Compiling detection model {self.checkpoint} from {DistilBertForSequenceClassification.get_local_path(self.checkpoint)} onto device {device} with dtype {dtype}"
-            )
-            compile_args = {"backend": "openxla"} if device == "xla" else {}
-            model = torch.compile(model, **compile_args)
 
         return model
 

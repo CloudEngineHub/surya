@@ -8,13 +8,12 @@ from surya.ocr_error.loader import OCRErrorModelLoader
 from surya.ocr_error.model.config import ID2LABEL
 from surya.ocr_error.schema import OCRErrorDetectionResult
 from surya.settings import settings
-from surya.common.xla import mark_step
 
 
 class OCRErrorPredictor(BasePredictor):
     model_loader_cls = OCRErrorModelLoader
     batch_size = settings.OCR_ERROR_BATCH_SIZE
-    default_batch_sizes = {"cpu": 8, "mps": 8, "cuda": 64, "xla": 32}
+    default_batch_sizes = {"cpu": 8, "mps": 8, "cuda": 64}
 
     def __call__(self, texts: List[str], batch_size: Optional[int] = None):
         return self.batch_ocr_error_detection(texts, batch_size)
@@ -43,20 +42,10 @@ class OCRErrorPredictor(BasePredictor):
                 self.model.device
             )
 
-            # Pad to batch size
-            current_batch_size = batch_input_ids.shape[0]
-            if settings.OCR_ERROR_STATIC_CACHE:
-                batch_input_ids = self.pad_to_batch_size(batch_input_ids, batch_size)
-                batch_attention_mask = self.pad_to_batch_size(
-                    batch_attention_mask, batch_size
-                )
-
             with settings.INFERENCE_MODE():
                 pred = self.model(batch_input_ids, attention_mask=batch_attention_mask)
-
-                logits = pred.logits.argmax(dim=1).cpu().tolist()[:current_batch_size]
+                logits = pred.logits.argmax(dim=1).cpu().tolist()
                 predictions.extend(logits)
-            mark_step()
 
         return OCRErrorDetectionResult(
             texts=texts, labels=[ID2LABEL[p] for p in predictions]

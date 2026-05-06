@@ -1,27 +1,35 @@
-from typing import Dict
+from typing import Dict, Optional
 
 import torch
 
-from surya.common.predictor import BasePredictor
 from surya.detection import DetectionPredictor
+from surya.inference import SuryaInferenceManager
 from surya.layout import LayoutPredictor
 from surya.logging import configure_logging
 from surya.ocr_error import OCRErrorPredictor
-from surya.foundation import FoundationPredictor
 from surya.recognition import RecognitionPredictor
 from surya.table_rec import TableRecPredictor
-from surya.settings import settings
 
 configure_logging()
 
 
 def load_predictors(
-    device: str | torch.device | None = None, dtype: torch.dtype | str | None = None
-) -> Dict[str, BasePredictor]:
+    device: str | torch.device | None = None,
+    dtype: torch.dtype | str | None = None,
+    manager: Optional[SuryaInferenceManager] = None,
+) -> Dict[str, object]:
+    """Build the standard surya predictor set.
+
+    The VLM-backed predictors (layout, recognition, table_rec) share a single
+    SuryaInferenceManager. Detection and OCR error keep their own torch models.
+    """
+    if manager is None:
+        manager = SuryaInferenceManager(lazy=True)
     return {
-        "layout": LayoutPredictor(FoundationPredictor(checkpoint=settings.LAYOUT_MODEL_CHECKPOINT)),
-        "ocr_error": OCRErrorPredictor(device=device, dtype=dtype),
-        "recognition": RecognitionPredictor(FoundationPredictor(checkpoint=settings.RECOGNITION_MODEL_CHECKPOINT)),
+        "layout": LayoutPredictor(manager),
+        "recognition": RecognitionPredictor(manager),
+        "table_rec": TableRecPredictor(manager),
         "detection": DetectionPredictor(device=device, dtype=dtype),
-        "table_rec": TableRecPredictor(device=device, dtype=dtype),
+        "ocr_error": OCRErrorPredictor(device=device, dtype=dtype),
+        "manager": manager,
     }

@@ -1,111 +1,116 @@
-from typing import List
+from __future__ import annotations
+
+from typing import List, Optional
 
 from PIL import Image
 
-from surya.common.predictor import BasePredictor
-from surya.layout.schema import LayoutBox, LayoutResult
-from surya.settings import settings
-from surya.foundation import FoundationPredictor, TaskNames
-from surya.foundation.util import prediction_to_polygon_batch
-from surya.input.processing import convert_if_not_rgb
+from surya.inference import SuryaInferenceManager, get_default_manager
+from surya.inference.parsers import denorm_bbox, parse_layout
+from surya.inference.prompts import LAYOUT_JSON_SCHEMA, PROMPT_TYPE_LAYOUT
+from surya.inference.schema import BatchInputItem
 from surya.layout.label import LAYOUT_PRED_RELABEL
-from surya.common.util import clean_boxes
+from surya.layout.schema import LayoutBox, LayoutResult
+from surya.logging import get_logger
+from surya.settings import settings
+
+logger = get_logger()
 
 
-class LayoutPredictor(BasePredictor):
-    batch_size = settings.LAYOUT_BATCH_SIZE
-    default_batch_sizes = {"cpu": 4, "mps": 4, "cuda": 32, "xla": 16}
+class LayoutPredictor:
+    """Run LAYOUT_PROMPT on full pages, parse JSON, return LayoutResult per image."""
 
-    # Override base init - Do not load model
-    def __init__(self, foundation_predictor: FoundationPredictor):
-        self.foundation_predictor = foundation_predictor
-        self.processor = self.foundation_predictor.processor
-        self.bbox_size = self.foundation_predictor.model.config.bbox_size
-        self.tasks = self.foundation_predictor.tasks
+    def __init__(self, manager: Optional[SuryaInferenceManager] = None):
+        self.manager = manager  # If None, get_default_manager() is used at call time
+        self._disable_tqdm = settings.DISABLE_TQDM
 
-    # Special handling for disable tqdm to pass into foundation predictor
-    # Make sure they are kept in sync
     @property
     def disable_tqdm(self) -> bool:
-        return super().disable_tqdm
+        return self._disable_tqdm
 
     @disable_tqdm.setter
     def disable_tqdm(self, value: bool) -> None:
         self._disable_tqdm = bool(value)
-        self.foundation_predictor.disable_tqdm = bool(value)
+
+    def to(self, *args, **kwargs):
+        # Manager-backed; .to() is a no-op for compatibility with BasePredictor callers.
+        return
 
     def __call__(
-        self, images: List[Image.Image], batch_size: int | None = None, top_k: int = 5
+        self,
+        images: List[Image.Image],
+        target_image_sizes: Optional[List[tuple]] = None,
+        max_tokens: Optional[int] = None,
     ) -> List[LayoutResult]:
-        assert all([isinstance(image, Image.Image) for image in images])
-        if batch_size is None:
-            batch_size = self.get_batch_size()
+        """Run layout on a batch of images.
 
-        if len(images) == 0:
+        target_image_sizes: optional list of (width, height) tuples — if
+        provided, bboxes are denormalized to these sizes instead of each
+        input image's size. Useful when layout runs on a low-DPI render but
+        you want bboxes in the OCR image's coordinate space.
+        """
+        if not images:
             return []
+        manager = self.manager or get_default_manager()
 
-        images = convert_if_not_rgb(images)
-        images = [self.processor.image_processor(image) for image in images]
-
-        predicted_tokens, batch_bboxes, scores, topk_scores = (
-            self.foundation_predictor.prediction_loop(
-                images=images,
-                input_texts=["" for _ in range(len(images))],
-                task_names=[TaskNames.layout for _ in range(len(images))],
-                batch_size=batch_size,
-                max_lookahead_tokens=0,  # Do not do MTP for layout
-                top_k=5,
-                max_sliding_window=576,
-                max_tokens=500,
-                tqdm_desc="Recognizing Layout"
+        max_tokens = max_tokens or settings.SURYA_MAX_TOKENS_LAYOUT
+        guided = LAYOUT_JSON_SCHEMA if settings.SURYA_GUIDED_LAYOUT else None
+        batch = [
+            BatchInputItem(
+                image=img,
+                prompt_type=PROMPT_TYPE_LAYOUT,
+                max_tokens=max_tokens,
+                guided_json=guided,
             )
-        )
+            for img in images
+        ]
+        outputs = manager.generate(batch)
 
-        image_sizes = [img.shape for img in images]
-        predicted_polygons = prediction_to_polygon_batch(
-            batch_bboxes, image_sizes, self.bbox_size, self.bbox_size // 2
-        )
-        layout_results = []
-        for image, image_tokens, image_polygons, image_scores, image_topk_scores in zip(
-            images, predicted_tokens, predicted_polygons, scores, topk_scores
-        ):
-            layout_boxes = []
-            for z, (tok, poly, score, tok_topk) in enumerate(
-                zip(image_tokens, image_polygons, image_scores, image_topk_scores)
-            ):
-                if tok == self.processor.eos_token_id:
-                    break
+        if target_image_sizes is not None and len(target_image_sizes) != len(images):
+            raise ValueError("target_image_sizes must match images length")
 
-                predicted_label = self.processor.decode([tok], "layout")
-                label = LAYOUT_PRED_RELABEL.get(predicted_label)
-                if not label:
-                    # Layout can sometimes return unknown labels from other objectives
-                    continue
-
-                top_k_dict = {}
-                for k, v in tok_topk.items():
-                    topk_label = self.processor.decode([k], "layout")
-                    if topk_label in LAYOUT_PRED_RELABEL:
-                        topk_label = LAYOUT_PRED_RELABEL[topk_label]
-                    if not topk_label.strip():
-                        continue
-                    top_k_dict.update({topk_label: v})
-                layout_boxes.append(
-                    LayoutBox(
-                        polygon=poly.tolist(),
-                        label=label,
-                        position=z,
-                        top_k=top_k_dict,
-                        confidence=score,
+        results: List[LayoutResult] = []
+        for idx, (img, out) in enumerate(zip(images, outputs)):
+            if target_image_sizes is not None:
+                w, h = target_image_sizes[idx]
+            else:
+                w, h = img.size
+            page_bbox = [0, 0, float(w), float(h)]
+            if out.error or not out.raw:
+                results.append(
+                    LayoutResult(
+                        bboxes=[], image_bbox=page_bbox, raw=out.raw, error=True
                     )
                 )
-            layout_boxes = clean_boxes(layout_boxes)
-            layout_results.append(
-                LayoutResult(
-                    bboxes=layout_boxes,
-                    image_bbox=[0, 0, image.shape[1], image.shape[0]],
-                )  # Image is numpy array
-            )
+                continue
+            try:
+                parsed = parse_layout(out.raw)
+            except Exception as e:
+                logger.warning(f"Layout parse failed: {e}; raw[:300]={out.raw[:300]!r}")
+                results.append(
+                    LayoutResult(
+                        bboxes=[], image_bbox=page_bbox, raw=out.raw, error=True
+                    )
+                )
+                continue
 
-        assert len(layout_results) == len(images)
-        return layout_results
+            confidence = out.mean_token_prob if out.mean_token_prob is not None else 1.0
+            boxes: List[LayoutBox] = []
+            for idx, blk in enumerate(parsed):
+                pixel_bbox = denorm_bbox(blk.bbox, w, h, scale=settings.BBOX_SCALE)
+                canon = LAYOUT_PRED_RELABEL.get(blk.label, blk.label)
+                boxes.append(
+                    LayoutBox(
+                        polygon=list(pixel_bbox),
+                        label=canon,
+                        raw_label=blk.label,
+                        position=idx,
+                        count=blk.count,
+                        confidence=confidence,
+                    )
+                )
+            results.append(
+                LayoutResult(
+                    bboxes=boxes, image_bbox=page_bbox, raw=out.raw, error=False
+                )
+            )
+        return results

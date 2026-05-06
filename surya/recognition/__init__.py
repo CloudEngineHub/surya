@@ -1,526 +1,273 @@
+"""RecognitionPredictor: per-block OCR via BLOCK_PROMPT.
+
+Given page images and corresponding LayoutResult (or any list of LayoutBox),
+crops each block, runs BLOCK_PROMPT, returns PageOCRResult per page.
+"""
+
 from __future__ import annotations
 
-import re
-from typing import List
+from typing import List, Optional
 
-import numpy as np
-import torch
 from PIL import Image
-import torch.nn.functional as F
 
-from surya.common.polygon import PolygonBox
-from surya.common.surya.processor import NOMATH_TOKEN
-from surya.common.predictor import BasePredictor
-from surya.detection import DetectionPredictor
-from surya.foundation import FoundationPredictor
-
-from surya.input.processing import (
-    convert_if_not_rgb,
-    slice_polys_from_image,
-    slice_bboxes_from_image,
+from surya.inference import SuryaInferenceManager, get_default_manager
+from surya.inference.parsers import clean_block_html, parse_full_page_html
+from surya.inference.prompts import (
+    PROMPT_TYPE_BLOCK,
+    PROMPT_TYPE_HIGH_ACCURACY_BBOX,
+    SKIP_OCR_LABELS,
 )
-from surya.recognition.postprocessing import fix_unbalanced_tags
-from surya.recognition.util import (
-    sort_text_lines,
-    clean_close_polygons,
-    unwrap_math,
-    clean_math_tags,
-    filter_blacklist_tags,
-    words_from_chars
+from surya.inference.schema import BatchInputItem
+from surya.inference.util import image_token_budget
+from surya.layout.label import LAYOUT_PRED_RELABEL
+from surya.layout.schema import LayoutResult
+from surya.logging import get_logger
+from surya.recognition.schema import (
+    BlockOCRResult,
+    OCRResult,
+    PageOCRResult,
+    TextLine,
 )
-from surya.foundation.util import detect_repeat_token, prediction_to_polygon_batch
-from surya.recognition.schema import TextLine, OCRResult, TextChar
-from surya.common.surya.schema import TaskNames
 from surya.settings import settings
-from surya.logging import get_logger, configure_logging
 
-configure_logging()
 logger = get_logger()
 
-class RecognitionPredictor(BasePredictor):
-    batch_size = settings.RECOGNITION_BATCH_SIZE
-    default_batch_sizes = {"cpu": 32, "mps": 64, "cuda": 256, "xla": 128}
 
-    # Override base init - Do not load model
-    def __init__(self, foundation_predictor: FoundationPredictor):
-        self.foundation_predictor = foundation_predictor
-        self.processor = self.foundation_predictor.processor
-        self.bbox_size = self.foundation_predictor.model.config.bbox_size
-        self.tasks = self.foundation_predictor.tasks
+# Surya's canonical labels we shouldn't OCR (mirrors model-emitted SKIP_OCR_LABELS
+# after canonicalization).
+SKIP_CANON_LABELS = {LAYOUT_PRED_RELABEL.get(lbl, lbl) for lbl in SKIP_OCR_LABELS}
 
-    # Special handling for disable tqdm to pass into foundation predictor
-    # Make sure they are kept in sync
+
+def _crop_block(image: Image.Image, polygon, pad: int = 4) -> Image.Image:
+    xs = [p[0] for p in polygon]
+    ys = [p[1] for p in polygon]
+    x0 = max(0, int(min(xs)) - pad)
+    y0 = max(0, int(min(ys)) - pad)
+    x1 = min(image.size[0], int(max(xs)) + pad)
+    y1 = min(image.size[1], int(max(ys)) + pad)
+    if x1 <= x0 or y1 <= y0:
+        return image.crop((0, 0, 1, 1))
+    return image.crop((x0, y0, x1, y1))
+
+
+class RecognitionPredictor:
+    """Per-block OCR. Construct with a SuryaInferenceManager (or rely on default)."""
+
+    def __init__(self, manager: Optional[SuryaInferenceManager] = None):
+        self.manager = manager
+        self._disable_tqdm = settings.DISABLE_TQDM
+
     @property
     def disable_tqdm(self) -> bool:
-        return super().disable_tqdm
+        return self._disable_tqdm
 
     @disable_tqdm.setter
     def disable_tqdm(self, value: bool) -> None:
         self._disable_tqdm = bool(value)
-        self.foundation_predictor.disable_tqdm = bool(value)
 
-    def detect_and_slice_bboxes(
-        self,
-        images: List[Image.Image],
-        task_names: List[str],
-        det_predictor: DetectionPredictor,
-        detection_batch_size: int | None = None,
-        highres_images: List[Image.Image] | None = None,
-    ):
-        det_predictions = det_predictor(images, batch_size=detection_batch_size)
-
-        all_slices = []
-        slice_map = []
-        all_polygons = []
-        all_task_names = []
-        all_res_scales = []
-
-        for idx, (det_pred, image, highres_image, task_name) in enumerate(
-            zip(det_predictions, images, highres_images, task_names)
-        ):
-            polygons = [p.polygon for p in det_pred.bboxes]
-            if highres_image:
-                width_scaler = highres_image.size[0] / image.size[0]
-                height_scaler = highres_image.size[1] / image.size[1]
-                scaled_polygons = [
-                    [
-                        [int(p[0] * width_scaler), int(p[1] * height_scaler)]
-                        for p in polygon
-                    ]
-                    for polygon in polygons
-                ]
-                highres_image = self.processor.image_processor(highres_image)
-                slices = slice_polys_from_image(highres_image, scaled_polygons)
-                res_scales = [(width_scaler, height_scaler) for _ in range(len(slices))]
-            else:
-                image = self.processor.image_processor(image)
-                slices = slice_polys_from_image(image, polygons)
-                res_scales = [(1, 1) for _ in range(len(slices))]
-
-            slice_map.append(len(slices))
-            all_slices.extend(slices)
-            all_polygons.extend(polygons)
-            all_task_names.extend([task_name] * len(slices))
-            all_res_scales.extend(res_scales)
-
-        assert (
-            len(all_slices)
-            == sum(slice_map)
-            == len(all_polygons)
-            == len(all_task_names)
-            == len(all_res_scales)
-        )
-
-        return {
-            "slices": all_slices,
-            "slice_map": slice_map,
-            "polygons": all_polygons,
-            "task_names": all_task_names,
-            "input_text": [None] * len(all_slices),
-            "res_scales": all_res_scales,
-        }
-
-    def slice_bboxes(
-        self,
-        images: List[Image.Image],
-        task_names: List[str],
-        bboxes: List[List[List[int]]] | None = None,
-        polygons: List[List[List[List[int]]]] | None = None,
-        input_text: List[List[str | None]] | None = None,
-    ) -> dict:
-        assert bboxes is not None or polygons is not None
-        slice_map = []
-        all_slices = []
-        all_polygons = []
-        all_text = []
-        all_task_names = []
-
-        for idx, image in enumerate(images):
-            image = self.processor.image_processor(image)
-            if polygons is not None:
-                polys = polygons[idx]
-                slices = slice_polys_from_image(image, polys)
-            else:
-                slices = slice_bboxes_from_image(image, bboxes[idx])
-                polys = [
-                    [
-                        [bbox[0], bbox[1]],
-                        [bbox[2], bbox[1]],
-                        [bbox[2], bbox[3]],
-                        [bbox[0], bbox[3]],
-                    ]
-                    for bbox in bboxes[idx]
-                ]
-            slice_map.append(len(slices))
-            all_slices.extend(slices)
-            all_polygons.extend(polys)
-            all_task_names.extend([task_names[idx]] * len(slices))
-
-            if input_text is None:
-                all_text.extend([None] * len(slices))
-            else:
-                all_text.extend(input_text[idx])
-
-        assert (
-            len(all_slices)
-            == sum(slice_map)
-            == len(all_polygons)
-            == len(all_text)
-            == len(all_task_names)
-        ), (
-            f"Mismatch in lengths: {len(all_slices)}, {sum(slice_map)}, {len(all_polygons)}, {len(all_text)}, {len(all_task_names)}"
-        )
-
-        return {
-            "slices": all_slices,
-            "slice_map": slice_map,
-            "polygons": all_polygons,
-            "input_text": all_text,
-            "task_names": all_task_names,
-            "res_scales": [(1, 1) for _ in range(len(all_slices))],
-        }
-
-    def get_bboxes_text(
-        self,
-        flat: dict,
-        predicted_tokens: list,
-        scores: list,
-        predicted_polygons: list,
-        drop_repeated_text: bool = False,
-    ) -> list:
-        char_predictions = []
-        needs_boxes = [
-            self.tasks[task_name]["needs_bboxes"] for task_name in flat["task_names"]
-        ]
-
-        for slice_idx, (
-            slice_image,
-            image_tokens,
-            image_polygons,
-            image_scores,
-            needs_box,
-        ) in enumerate(
-            zip(
-                flat["slices"],
-                predicted_tokens,
-                predicted_polygons,
-                scores,
-                needs_boxes,
-            )
-        ):
-            blank_bbox = [[0, 0], [0, 1], [1, 1], [1, 0]]
-            if self.processor.no_output_token in image_tokens:
-                char_predictions.append(None)
-                continue
-
-            # If the image is very out of distribution, we can get nonsense repeats, and we may need to drop the text entirely
-            if drop_repeated_text and detect_repeat_token(image_tokens):
-                char_predictions.append(
-                    [
-                        TextChar(
-                            text="",
-                            polygon=blank_bbox,
-                            confidence=0,
-                            bbox_valid=False,
-                        )
-                    ]
-                )
-                continue
-
-            image_polygons = image_polygons[: len(image_tokens)].cpu().numpy().tolist()
-
-            detokenize_sequences = []
-            detokenize_sequence = []
-            past_char_qwen_token = False
-
-            def _add_detokenize_sequence(
-                special_token: bool,
-                past_special_token: bool,
-                force: bool = False,
-            ):
-                nonlocal detokenize_sequence, detokenize_sequences
-
-                if (
-                    special_token
-                    or past_special_token
-                    or force
-                ) and detokenize_sequence:
-                    chars = [dt[0] for dt in detokenize_sequence]
-                    scores = [dt[1] for dt in detokenize_sequence]
-                    bboxes = [dt[2] for dt in detokenize_sequence]
-
-                    if past_special_token:
-                        detokenize_sequences.append((chars, scores, None, "special"))
-                    else:
-                        detokenize_sequences.append((chars, scores, bboxes, "ocr"))
-
-                    detokenize_sequence = []
-
-            # Split up into sequences to detokenize separately
-            past_special_token = False
-            for bbox, char_id, score in zip(image_polygons, image_tokens, image_scores):
-                if char_id in [
-                    self.processor.eos_token_id,
-                    self.processor.pad_token_id,
-                ]:
-                    break
-
-                special_token = (
-                    char_id >= self.processor.ocr_tokenizer.ocr_tokenizer.SPECIAL_BASE
-                )
-                _add_detokenize_sequence(
-                    special_token, past_special_token
-                )
-                detokenize_sequence.append((char_id, score, bbox))
-                past_special_token = special_token
-
-            _add_detokenize_sequence(
-                False, past_special_token, force=True
-            )
-
-            img_chars = []
-            for sequence in detokenize_sequences:
-                token_ids, seq_score, bboxes, token_type = sequence
-                if token_type == "ocr":
-                    text = self.processor.ocr_tokenizer.decode(
-                        token_ids, task=TaskNames.ocr_with_boxes
-                    )
-                    bboxes = clean_close_polygons(
-                        bboxes
-                    )  # clean out bboxes that are close, like what happens with multiple utf-16 tokens per char
-                    bbox_idx = 0
-                    for text_idx, text_line in enumerate(text):
-                        img_chars.append(
-                            TextChar(
-                                text=text_line,
-                                polygon=bboxes[bbox_idx],
-                                confidence=seq_score[bbox_idx],
-                                bbox_valid=True,
-                            )
-                        )
-
-                        # Ensure we don't exceed the bbox count
-                        # Use the last bbox for the rest of the text
-                        if bbox_idx < len(bboxes) - 1:
-                            bbox_idx += 1
-                elif token_type == "special":
-                    text = self.processor.ocr_tokenizer.decode(
-                        token_ids, task="ocr_without_boxes"
-                    )
-                    if text in [NOMATH_TOKEN] or re.match(r"<SCRIPT-\w+>", text):
-                        continue
-
-                    img_chars.append(
-                        TextChar(
-                            text=text,
-                            polygon=blank_bbox,
-                            confidence=seq_score[0],
-                            bbox_valid=False,
-                        )
-                    )
-                else:
-                    text = self.processor.ocr_tokenizer.decode(
-                        token_ids, task=TaskNames.block_without_boxes
-                    )
-                    img_chars.append(
-                        TextChar(
-                            text=text,
-                            polygon=blank_bbox,
-                            confidence=seq_score[0],
-                            bbox_valid=False,
-                        )
-                    )
-
-            char_predictions.append(img_chars)
-
-        return char_predictions
+    def to(self, *args, **kwargs):
+        return
 
     def __call__(
         self,
         images: List[Image.Image],
-        task_names: List[str] | None = None,
-        det_predictor: DetectionPredictor | None = None,
-        detection_batch_size: int | None = None,
-        recognition_batch_size: int | None = None,
-        highres_images: List[Image.Image] | None = None,
-        bboxes: List[List[List[int]]] | None = None,
-        polygons: List[List[List[List[int]]]] | None = None,
-        input_text: List[List[str | None]] | None = None,
-        sort_lines: bool = False,
-        math_mode: bool = True,
-        return_words: bool = False,
-        drop_repeated_text: bool = False,
-        max_sliding_window: int | None = None,
-        max_tokens: int | None = None,
-        filter_tag_list: List[str] = None
+        layout_results: Optional[List[LayoutResult]] = None,
+        *,
+        full_page: Optional[bool] = None,
+    ) -> List[PageOCRResult]:
+        """Run OCR on each page.
+
+        Mode resolution:
+          - ``full_page=None`` (default): block mode if ``layout_results`` is
+            given, else full-page mode. This is the most-do-what-I-mean form.
+          - ``full_page=True``: full-page OCR (single HIGH_ACCURACY_BBOX_PROMPT
+            request per page). ``layout_results`` is ignored — a warning is
+            logged if it was supplied.
+          - ``full_page=False``: block mode (per-layout-block OCR request).
+            ``layout_results`` is required.
+
+        Full-page is the more accurate path; block mode is for callers that
+        specifically need per-block crops (e.g. for downstream merging with
+        text-line detection).
+        """
+        if not images:
+            return []
+        if full_page is None:
+            full_page = layout_results is None
+        if full_page:
+            if layout_results is not None:
+                logger.warning(
+                    "RecognitionPredictor called with full_page=True and "
+                    "layout_results; layout_results will be ignored."
+                )
+            return self._full_page_ocr(images)
+        if layout_results is None:
+            raise ValueError("layout_results required when full_page=False")
+        if len(images) != len(layout_results):
+            raise ValueError(
+                f"images and layout_results must be same length "
+                f"({len(images)} vs {len(layout_results)})"
+            )
+        manager = self.manager or get_default_manager()
+
+        # Build a flat batch across all pages for max concurrency
+        batch: List[BatchInputItem] = []
+        block_index_map: List[tuple[int, int]] = []  # (page_idx, block_idx)
+        skipped_flags: List[bool] = []
+
+        for page_idx, (img, layout) in enumerate(zip(images, layout_results)):
+            for block_idx, box in enumerate(layout.bboxes):
+                skip = box.label in SKIP_CANON_LABELS
+                skipped_flags.append(skip)
+                if skip:
+                    continue
+                crop = _crop_block(img, box.polygon)
+                max_tokens = image_token_budget(
+                    box.count, ceiling=settings.SURYA_MAX_TOKENS_BLOCK_CEILING
+                )
+                batch.append(
+                    BatchInputItem(
+                        image=crop,
+                        prompt_type=PROMPT_TYPE_BLOCK,
+                        max_tokens=max_tokens,
+                        metadata={"page_idx": page_idx, "block_idx": block_idx},
+                    )
+                )
+                block_index_map.append((page_idx, block_idx))
+
+        outputs = manager.generate(batch) if batch else []
+
+        # Index outputs by (page_idx, block_idx)
+        out_by_key = {}
+        for out in outputs:
+            key = (out.metadata["page_idx"], out.metadata["block_idx"])
+            out_by_key[key] = out
+
+        # Assemble PageOCRResult per page
+        results: List[PageOCRResult] = []
+        for page_idx, (img, layout) in enumerate(zip(images, layout_results)):
+            w, h = img.size
+            blocks: List[BlockOCRResult] = []
+            for block_idx, box in enumerate(layout.bboxes):
+                skip = box.label in SKIP_CANON_LABELS
+                if skip:
+                    blocks.append(
+                        BlockOCRResult(
+                            polygon=box.polygon,
+                            label=box.label,
+                            raw_label=box.raw_label,
+                            reading_order=box.position,
+                            html="",
+                            skipped=True,
+                            confidence=1.0,
+                        )
+                    )
+                    continue
+                out = out_by_key.get((page_idx, block_idx))
+                if out is None or out.error:
+                    blocks.append(
+                        BlockOCRResult(
+                            polygon=box.polygon,
+                            label=box.label,
+                            raw_label=box.raw_label,
+                            reading_order=box.position,
+                            html="",
+                            skipped=False,
+                            error=True,
+                            confidence=0.0,
+                        )
+                    )
+                    continue
+                html = clean_block_html(out.raw)
+                conf = out.mean_token_prob if out.mean_token_prob is not None else 1.0
+                blocks.append(
+                    BlockOCRResult(
+                        polygon=box.polygon,
+                        label=box.label,
+                        raw_label=box.raw_label,
+                        reading_order=box.position,
+                        html=html,
+                        skipped=False,
+                        error=False,
+                        confidence=conf,
+                        raw_logprobs=out.logprobs,
+                    )
+                )
+            results.append(
+                PageOCRResult(blocks=blocks, image_bbox=[0, 0, float(w), float(h)])
+            )
+        return results
+
+    def _full_page_ocr(self, images: List[Image.Image]) -> List[PageOCRResult]:
+        """One HIGH_ACCURACY_BBOX_PROMPT request per page; parses divs into blocks."""
+        manager = self.manager or get_default_manager()
+        batch = [
+            BatchInputItem(
+                image=img,
+                prompt_type=PROMPT_TYPE_HIGH_ACCURACY_BBOX,
+                max_tokens=settings.SURYA_MAX_TOKENS_FULL_PAGE,
+                metadata={"page_idx": i},
+            )
+            for i, img in enumerate(images)
+        ]
+        outputs = manager.generate(batch)
+        out_by_page = {o.metadata["page_idx"]: o for o in outputs}
+
+        results: List[PageOCRResult] = []
+        for page_idx, img in enumerate(images):
+            w, h = img.size
+            page_bbox = [0, 0, float(w), float(h)]
+            out = out_by_page.get(page_idx)
+            if out is None or out.error or not out.raw:
+                results.append(PageOCRResult(blocks=[], image_bbox=page_bbox))
+                continue
+            try:
+                parsed = parse_full_page_html(out.raw)
+            except Exception as e:
+                logger.warning(f"Full-page parse failed for page {page_idx}: {e}")
+                results.append(PageOCRResult(blocks=[], image_bbox=page_bbox))
+                continue
+            confidence = out.mean_token_prob if out.mean_token_prob is not None else 1.0
+            blocks: List[BlockOCRResult] = []
+            for idx, item in enumerate(parsed):
+                x0 = item.bbox[0] / settings.BBOX_SCALE * w
+                y0 = item.bbox[1] / settings.BBOX_SCALE * h
+                x1 = item.bbox[2] / settings.BBOX_SCALE * w
+                y1 = item.bbox[3] / settings.BBOX_SCALE * h
+                polygon = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
+                canon = LAYOUT_PRED_RELABEL.get(item.label, item.label)
+                skipped = canon in SKIP_CANON_LABELS
+                blocks.append(
+                    BlockOCRResult(
+                        polygon=polygon,
+                        label=canon,
+                        raw_label=item.label,
+                        reading_order=idx,
+                        html="" if skipped else item.html,
+                        skipped=skipped,
+                        error=False,
+                        confidence=confidence,
+                    )
+                )
+            results.append(PageOCRResult(blocks=blocks, image_bbox=page_bbox))
+        return results
+
+    def to_legacy_ocr_results(
+        self, page_results: List[PageOCRResult]
     ) -> List[OCRResult]:
-        if task_names is None:
-            task_names = [TaskNames.ocr_with_boxes] * len(images)
-        if recognition_batch_size is None:
-            recognition_batch_size = self.get_batch_size()
-
-        assert len(images) == len(task_names), (
-            "You need to pass in one task name for each image"
-        )
-
-        images = convert_if_not_rgb(images)
-        if highres_images is not None:
-            assert len(images) == len(highres_images), (
-                "You need to pass in one highres image for each image"
-            )
-
-        highres_images = (
-            convert_if_not_rgb(highres_images)
-            if highres_images is not None
-            else [None] * len(images)
-        )
-
-        if bboxes is None and polygons is None:
-            assert det_predictor is not None, (
-                "You need to pass in a detection predictor if you don't provide bboxes or polygons"
-            )
-
-            # Detect then slice
-            flat = self.detect_and_slice_bboxes(
-                images,
-                task_names,
-                det_predictor,
-                detection_batch_size=detection_batch_size,
-                highres_images=highres_images,
-            )
-        else:
-            if bboxes is not None:
-                assert len(images) == len(bboxes), (
-                    "You need to pass in one list of bboxes for each image"
-                )
-            if polygons is not None:
-                assert len(images) == len(polygons), (
-                    "You need to pass in one list of polygons for each image"
-                )
-
-            flat = self.slice_bboxes(
-                images,
-                bboxes=bboxes,
-                polygons=polygons,
-                input_text=input_text,
-                task_names=task_names,
-            )
-
-        # No images passed, or no boxes passed, or no text detected in the images
-        if len(flat["slices"]) == 0:
-            return [
-                OCRResult(
-                    text_lines=[], image_bbox=[0, 0, im.size[0], im.size[1]]
-                )
-                for im in images
-            ]
-
-        # Sort by image sizes. Negative so that longer images come first, fits in with continuous batching better
-        sorted_pairs = sorted(
-            enumerate(flat["slices"]),
-            key=lambda x: -(x[1].shape[0] * x[1].shape[1])  # height * width
-        )
-        indices, sorted_slices = zip(*sorted_pairs)
-
-        # Reorder input_text and task_names based on the new order
-        flat["slices"] = list(sorted_slices)
-        flat["input_text"] = [flat["input_text"][i] for i in indices]
-        flat["task_names"] = [flat["task_names"][i] for i in indices]
-
-        # Make predictions
-        predicted_tokens, batch_bboxes, scores, _ = self.foundation_predictor.prediction_loop(
-            images=flat["slices"],
-            input_texts=flat["input_text"],
-            task_names=flat["task_names"],
-            batch_size=recognition_batch_size,
-            math_mode=math_mode,
-            drop_repeated_tokens=True,
-            max_lookahead_tokens=self.foundation_predictor.model.config.multi_output_distance,
-            max_sliding_window=max_sliding_window,
-            max_tokens=max_tokens,
-            tqdm_desc="Recognizing Text"
-        )
-
-        # Get text and bboxes in structured form
-        bbox_size = self.bbox_size
-        image_sizes = [img.shape for img in flat["slices"]]
-        predicted_polygons = prediction_to_polygon_batch(
-            batch_bboxes, image_sizes, bbox_size, bbox_size // 2
-        )
-        char_predictions = self.get_bboxes_text(
-            flat,
-            predicted_tokens,
-            scores,
-            predicted_polygons,
-            drop_repeated_text=drop_repeated_text,
-        )
-
-        char_predictions = sorted(zip(indices, char_predictions), key=lambda x: x[0])
-        char_predictions = [pred for _, pred in char_predictions]
-
-        predictions_by_image = []
-        slice_start = 0
-        for idx, image in enumerate(images):
-            slice_end = slice_start + flat["slice_map"][idx]
-            image_lines = char_predictions[slice_start:slice_end]
-            polygons = flat["polygons"][slice_start:slice_end]
-            res_scales = flat["res_scales"][slice_start:slice_end]
-            slice_start = slice_end
-
-            lines = []
-            for text_line, polygon, res_scale in zip(image_lines, polygons, res_scales):
-                # Special case when input text is good
-                if not text_line:
-                    lines.append(
-                        TextLine(
-                            text="",
-                            polygon=polygon,
-                            chars=[],
-                            confidence=1,
-                            original_text_good=True,
-                        )
+        """Compatibility shim: map BlockOCRResult → OCRResult.text_lines for old
+        downstream code that hasn't migrated yet. One TextLine per block, no chars."""
+        out: List[OCRResult] = []
+        for page in page_results:
+            lines: List[TextLine] = []
+            for blk in page.blocks:
+                lines.append(
+                    TextLine(
+                        polygon=blk.polygon,
+                        text=blk.html,
+                        chars=[],
+                        confidence=blk.confidence,
                     )
-                else:
-                    confidence = (
-                        float(np.mean([char.confidence for char in text_line]))
-                        if len(text_line) > 0
-                        else 0
-                    )
-                    poly_box = PolygonBox(polygon=polygon)
-                    for char in text_line:
-                        char.rescale(
-                            res_scale, (1, 1)
-                        )  # Rescale from highres if needed
-                        char.shift(
-                            poly_box.bbox[0], poly_box.bbox[1]
-                        )  # Ensure character boxes match line boxes (relative to page)
-                        char.clamp(poly_box.bbox)
-
-                    text_line = fix_unbalanced_tags(
-                        text_line, self.processor.ocr_tokenizer.special_tokens
-                    )
-                    text_line = filter_blacklist_tags(text_line, filter_tag_list)
-                    text = "".join([char.text for char in text_line])
-                    text = unwrap_math(text)
-                    text = clean_math_tags(text)
-                    lines.append(
-                        TextLine(
-                            text=text,
-                            polygon=polygon,
-                            chars=text_line,
-                            confidence=confidence,
-                            words=words_from_chars(text_line, poly_box)
-                            if return_words
-                            else [],
-                        )
-                    )
-
-            if sort_lines:
-                lines = sort_text_lines(lines)
-            predictions_by_image.append(
-                OCRResult(
-                    text_lines=lines, image_bbox=[0, 0, image.size[0], image.size[1]]
                 )
-            )
-
-        return predictions_by_image
+            out.append(OCRResult(text_lines=lines, image_bbox=page.image_bbox))
+        return out

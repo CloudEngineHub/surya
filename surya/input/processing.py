@@ -94,7 +94,7 @@ def slice_and_pad_poly(image_array: np.array, coordinates):
         cv2.fillPoly(mask, [np.int32(coordinates)], 1)
         mask = np.stack([mask] * 3, axis=-1)
 
-        cropped_polygon[mask == 0] = settings.RECOGNITION_PAD_VALUE
+        cropped_polygon[mask == 0] = 255  # white pad
     except cv2.error as e:
         logger.warning(f"Warning: issue while processing polygon: {e}")
 

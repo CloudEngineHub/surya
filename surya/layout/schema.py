@@ -1,4 +1,4 @@
-from typing import Optional, Dict, List
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -6,12 +6,14 @@ from surya.common.polygon import PolygonBox
 
 
 class LayoutBox(PolygonBox):
-    label: str
-    position: int
-    top_k: Optional[Dict[str, float]] = None
+    label: str  # canonicalized via LAYOUT_PRED_RELABEL
+    raw_label: str  # original model label, before canonicalization
+    position: int  # reading order index
+    count: int = 0  # model's token estimate for OCR output (multiple of 50)
 
 
 class LayoutResult(BaseModel):
     bboxes: List[LayoutBox]
     image_bbox: List[float]
-    sliced: bool = False  # Whether the image was sliced and reconstructed
+    raw: Optional[str] = None  # raw model output, useful for debugging
+    error: bool = False
