@@ -3,7 +3,7 @@ name = "surya-ocr"
 version = "2.0.0a0"
 description = "OCR, layout, reading order, and table recognition via VLM (vllm + llama.cpp)."
 readme = "README.md"
-license = { text = "GPL-3.0-or-later" }
+license = { text = "Apache-2.0" }
 authors = [
     { name = "Vik Paruchuri", email = "vik.paruchuri@gmail.com" },
 ]

@@ -1,3 +1,20 @@
+<h1 align="center">Datalab</h1>
+<p align="center">
+  <strong>State of the Art models for Document Intelligence</strong>
+</p>
+<p align="center">
+  <a href="https://www.apache.org/licenses/LICENSE-2.0"><img src="https://img.shields.io/badge/Code%20License-Apache--2.0-green.svg" alt="Code License"></a>
+  <a href="https://www.datalab.to/pricing"><img src="https://img.shields.io/badge/Model%20License-OpenRAIL--M-blue.svg" alt="Model License"></a>
+  <a href="https://discord.gg/KuZwXNGnfH"><img src="https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
+</p>
+<p align="center">
+  <a href="https://www.datalab.to"><img src="https://img.shields.io/badge/Homepage-datalab.to-blue" alt="Homepage"></a>
+  <a href="https://documentation.datalab.to"><img src="https://img.shields.io/badge/Docs-Read%20the%20docs-blue" alt="Docs"></a>
+  <a href="https://www.datalab.to/playground"><img src="https://img.shields.io/badge/Datalab Playground-Try%20it-orange" alt="Datalab Playground"></a>
+</p>
+
+<hr/>
+
 # Surya
 
 Surya is a document OCR toolkit built around a single vision-language model
@@ -11,16 +28,18 @@ that does:
 
 It works on a range of documents (see [usage](#usage) and [benchmarks](#benchmarks)).
 
-For our managed API or on-prem document intelligence solution, check out [our platform here](https://datalab.to?utm_source=gh-surya).
+## Try Datalab's Managed Platform
+
+Our managed platform runs both Surya, and variants of our highest accuracy model, [Chandra](https://github.com/datalab-to/chandra).
+
+If you have high volume workloads, we offer a batch processing service that can process 1B+ pages per week.
+
+Get started with **$5 in free credits** — [sign up](https://www.datalab.to/?utm_source=gh-surya) (takes under 30 seconds) or try our [public playground](https://www.datalab.to/playground?utm_source=gh-surya).
+
+Commercial self-hosting of the model weights requires a license — see [Commercial usage](#commercial-usage). For on-prem licensing, [contact us](https://www.datalab.to/contact?utm_source=gh-surya-onprem).
 
 
-<p align="center">
-  <a href="#olmocr-bench">
-    <img src="static/images/olmocr_size_chart.png" alt="olmOCR-bench score vs model size — click for details" width="700"/>
-  </a>
-  <br/>
-  <sub>olmOCR-bench score vs open-weight model size — <a href="#olmocr-bench">see detailed scores</a></sub>
-</p>
+<img src="static/images/olmocr_size_chart.png" width="700"/>
 
 
 |                            Detection                             |                                   OCR                                   |
@@ -38,15 +57,10 @@ For our managed API or on-prem document intelligence solution, check out [our pl
 
 Surya is named for the [Hindu sun god](https://en.wikipedia.org/wiki/Surya), who has universal vision.
 
-## Community
-
-[Discord](https://discord.gg//KuZwXNGnfH) is where we discuss future development.
-
 ## Examples
 
 Each row links to four annotated views of the same page: text-line detection,
-layout, reading order, and (when present) table recognition. Generated with
-the latest Surya 2 checkpoint.
+layout, reading order, and (when present) table recognition.
 
 | Name             |              Detection              |                                       Layout |                                          Order |                                       Table Rec |
 |------------------|:-----------------------------------:|---------------------------------------------:|------------------------------------------------:|------------------------------------------------:|
@@ -56,18 +70,9 @@ the latest Surya 2 checkpoint.
 | Handwritten Notes | [Image](static/images/handwritten.png) | [Image](static/images/handwritten_layout.png) | [Image](static/images/handwritten_reading.png) | [Image](static/images/handwritten_tablerec.png) |
 | Corporate Doc    | [Image](static/images/corporate.png) | [Image](static/images/corporate_layout.png) | [Image](static/images/corporate_reading.png) | [Image](static/images/corporate_tablerec.png) |
 
-# Hosted API
-
-There is a hosted API for all surya models available [here](https://www.datalab.to?utm_source=gh-surya):
-
-- Works with PDF, images, word docs, and powerpoints
-- Consistent speed, with no latency spikes
-- High reliability and uptime
-
 # Commercial usage
 
-Our model weights use a modified AI Pubs Open Rail-M license (free for research, personal use, and startups under $2M funding/revenue) and our code is GPL. For broader commercial licensing or to remove GPL requirements, visit our pricing page [here](https://www.datalab.to/pricing?utm_source=gh-surya).
-
+The Surya code is licensed under Apache 2.0. The model weights use a modified AI Pubs Open Rail-M license (free for research, personal use, and startups under $2M funding/revenue). For broader commercial licensing of the model weights, visit our pricing page [here](https://www.datalab.to/pricing?utm_source=gh-surya).
 
 # Installation
 
@@ -81,19 +86,7 @@ pip install surya-ocr
 
 ## Upgrading from Surya v1
 
-Surya 2 replaces the per-task encoder-decoder models (`FoundationPredictor` + `RecognitionPredictor` + `LayoutPredictor` + `TableRecPredictor` each holding their own torch checkpoints) with a single vision-language model served by `vllm` (Docker, GPU) or `llama-server` (Apple Silicon / CPU). If you have v1 code:
-
-```python
-# v1 (no longer works)
-from surya.foundation import FoundationPredictor
-from surya.recognition import RecognitionPredictor
-
-foundation = FoundationPredictor()
-rec = RecognitionPredictor(foundation)
-predictions = rec([image], det_predictor=det)
-```
-
-Migrate to:
+Surya 2 replaces the per-task encoder-decoder models (`FoundationPredictor` + `RecognitionPredictor` + `LayoutPredictor` + `TableRecPredictor` each holding their own torch checkpoints) with a single vision-language model served by `vllm` (Docker, GPU) or `llama-server` (Apple Silicon / CPU). If you have v1 code, you can migrate to this:
 
 ```python
 # v2
@@ -107,12 +100,7 @@ predictions = rec([image])                     # full-page OCR by default
 
 What's different:
 - `SuryaInferenceManager` replaces `FoundationPredictor`. Same manager instance is shared across `LayoutPredictor`, `RecognitionPredictor`, `TableRecPredictor`.
-- `RecognitionPredictor` defaults to **full-page mode** (one VLM call per page). Pass `layout_results` to opt into per-block mode.
-- `surya.texify` / `TexifyPredictor` is gone — math is recognized inline by the OCR pass and returned inside `<math>` tags.
-- Per-task batch-size env vars (`RECOGNITION_BATCH_SIZE`, `LAYOUT_BATCH_SIZE`, `TABLE_REC_BATCH_SIZE`) are gone. Tune throughput at the backend instead — `vllm`'s `--max-num-seqs` or `llama-server`'s `--parallel`, plus `SURYA_INFERENCE_PARALLEL` on the client.
 - Output schemas changed: see the per-section JSON tables below. Highlights — `text_lines` → `blocks` (with `html`); layout dropped `top_k`, added `count`; table_rec dropped `is_header` / `colspan` / `rowspan` from cells.
-
-Model weights will automatically download the first time you run surya.
 
 # Usage
 
@@ -122,7 +110,7 @@ will spawn one for you on first use; you can also point it at an existing
 server via `SURYA_INFERENCE_URL=http://host:port/v1`.
 
 - Inspect the settings in `surya/settings.py`.  You can override any setting via env var (e.g. `SURYA_INFERENCE_BACKEND=vllm`).
-- Text-line detection is a separate small torch model; everything else routes through the VLM.
+- Text detection and OCR errors are separate models.
 
 ## Interactive App
 
