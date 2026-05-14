@@ -384,22 +384,14 @@ Surya 2, per-source pass rate on the `default` preset (8,413 tests total):
 Full-page OCR, 96 DPI input (~3,000 output tokens/page average), measured
 client-side against a running inference server.
 
-### B200 (vllm)
+### RTX 5090 (vllm)
 
-`vllm/vllm-openai:v0.20.1`, single B200, `--max-num-seqs 512` /
-`--max-num-batched-tokens 16384`. Each row uses ≥20× concurrency in pages so
-steady state dominates. Prefix caching off.
+`vllm/vllm-openai:v0.20.1`, single RTX 5090 (32 GB), client-side
+concurrency held at 128. Prefix caching off.
 
-| Concurrency | Pages | Wall (s) | Pages/s | Tokens/s | p50 (ms) | p95 (ms) | p99 (ms) |
-|---:|---:|---:|---:|---:|---:|---:|---:|
-|  64 |  1,280 |   270 | 4.74 | 14,058 | 13,806 | 18,656 | 19,217 |
-| 128 |  2,560 |   449 | 5.71 | 16,948 | 22,820 | 29,501 | 30,897 |
-| **256** |  5,120 |   882 | **5.81** | **17,186** | 44,253 | 51,119 | 52,333 |
-| 512 | 10,240 | 1,761 | 5.81 | 17,211 | 87,961 | 94,941 | 96,185 |
-
-Throughput saturates at **conc=256** (5.81 pages/s ≈ 17.2k tokens/s). Going
-to 512 doesn't add capacity — it just queues, doubling latency. For
-production batch jobs the sweet spot is conc=128–256.
+| Concurrency | Pages/s | Tokens/s | Peak power |
+|---:|---:|---:|---:|
+| 128 | **5.64** | **13,829** | ~478 W (80 % of 600 W TDP) |
 
 ### Apple Silicon (llama.cpp / Metal)
 
