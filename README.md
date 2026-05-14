@@ -17,14 +17,12 @@
 
 # Surya
 
-Surya is a document OCR toolkit built around a single vision-language model
-that does:
+Surya is a document OCR toolkit powered by a 690M param model that does:
 
-- Full-page OCR with layout, ranking near top models on [olmOCR-bench](https://huggingface.co/datasets/allenai/olmOCR-bench)
+- Full-page OCR with layout, ranking near the top of [olmOCR-bench](https://huggingface.co/datasets/allenai/olmOCR-bench)
 - Line-level text detection
 - Layout analysis (table, image, header, etc.) with reading order
 - Table recognition (rows + columns + cell HTML)
-- Math / equations recognized inline (no separate LaTeX OCR pass)
 
 It works on a range of documents (see [usage](#usage) and [benchmarks](#benchmarks)).
 
@@ -80,7 +78,7 @@ pip install surya-ocr
 
 ## Upgrading from Surya v1
 
-Surya 2 replaces the per-task encoder-decoder models (`FoundationPredictor` + `RecognitionPredictor` + `LayoutPredictor` + `TableRecPredictor` each holding their own torch checkpoints) with a single vision-language model served by `vllm` (Docker, GPU) or `llama-server` (Apple Silicon / CPU). If you have v1 code, you can migrate to this:
+If you have v1 code, you can migrate to this:
 
 ```python
 # v2
@@ -89,7 +87,7 @@ from surya.recognition import RecognitionPredictor
 
 manager = SuryaInferenceManager()              # auto-spawns vllm or llama-server
 rec = RecognitionPredictor(manager)
-predictions = rec([image])                     # full-page OCR by default
+predictions = rec([image])
 ```
 
 What's different:
@@ -386,12 +384,11 @@ client-side against a running inference server.
 
 ### RTX 5090 (vllm)
 
-`vllm/vllm-openai:v0.20.1`, single RTX 5090 (32 GB), client-side
-concurrency held at 128. Prefix caching off.
+`vllm/vllm-openai:v0.20.1`, single RTX 5090 (32 GB).
 
-| Concurrency | Pages/s | Tokens/s | Peak power |
-|---:|---:|---:|---:|
-| 128 | **5.64** | **13,829** | ~478 W (80 % of 600 W TDP) |
+| Concurrency | Pages/s | Tokens/s |
+|---:|---:|---:|
+| 128 | **5.64** | **13,829** |
 
 ### Apple Silicon (llama.cpp / Metal)
 
@@ -403,15 +400,11 @@ concurrency held at 128. Prefix caching off.
 | **8** | **0.269** | **270** | 27,549 | 42,730 |
 | 16 | 0.264 |  286 | 53,166 | 70,378 |
 
-Knees at `--parallel=8` — Metal is decode-saturated past that point.
-
 ## Reproducing
 
 We score Surya 2 on olmOCR-bench by serving the model with `vllm` (or
 `llama.cpp`) and running the official olmOCR-bench harness from
-[allenai/olmocr](https://github.com/allenai/olmocr). Use the
-`HIGH_ACCURACY_BBOX_PROMPT` prompt (single full-page call per page); the
-RecognitionPredictor defaults to that mode.
+[allenai/olmocr](https://github.com/allenai/olmocr), with some adjustments applied to account for our output HTML format.
 
 # Training
 
