@@ -46,13 +46,9 @@ Commercial self-hosting of the model weights requires a license — see [Commerc
 |:----------------------------------------------------------------:|:-----------------------------------------------------------------------:|
 |  <img src="static/images/excerpt.png" width="280"/>  |  <img src="static/images/excerpt_text.png" width="280"/> |
 
-|                               Layout                               |                               Reading Order                                |
-|:------------------------------------------------------------------:|:--------------------------------------------------------------------------:|
-| <img src="static/images/excerpt_layout.png" width="280"/> | <img src="static/images/excerpt_reading.png" width="280"/> |
-
-|                       Table Recognition                       |                       Math / Equations                       |
-|:-------------------------------------------------------------:|:------------------------------------------------------------:|
-| <img src="static/images/scanned_tablerec.png" width="280"/> | <img src="static/images/latex_ocr.png" width="280"/> |
+|                               Layout                               |                       Table Recognition                       |
+|:------------------------------------------------------------------:|:-------------------------------------------------------------:|
+| <img src="static/images/excerpt_layout.png" width="280"/> | <img src="static/images/scanned_tablerec.png" width="280"/> |
 
 
 Surya is named for the [Hindu sun god](https://en.wikipedia.org/wiki/Surya), who has universal vision.
@@ -75,8 +71,6 @@ layout, reading order, and (when present) table recognition.
 The Surya code is licensed under Apache 2.0. The model weights use a modified AI Pubs Open Rail-M license (free for research, personal use, and startups under $2M funding/revenue). For broader commercial licensing of the model weights, visit our pricing page [here](https://www.datalab.to/pricing?utm_source=gh-surya).
 
 # Installation
-
-You'll need python 3.10+ and PyTorch. You may need to install the CPU version of torch first if you're not using a Mac or a GPU machine.  See [here](https://pytorch.org/get-started/locally/) for more details.
 
 Install with:
 
@@ -377,7 +371,7 @@ standard quality benchmark for document parsers.
 
 \* **LightOnOCR 2-1B** uses a different benchmark methodology than the other entries (see their [release notes](https://huggingface.co/lightonai/LightOnOCR-2-1B)); the score is included for context but is not directly comparable.
 
-Comparison scores from the [olmOCR-bench dataset card](https://huggingface.co/datasets/allenai/olmOCR-bench). Surya OCR 2 is reported as 0.69B params — the on-disk safetensors duplicates the tied embedding + lm_head, so HuggingFace shows ~0.75B; the underlying parameter count is 0.69B.
+Comparison scores from the [olmOCR-bench dataset card](https://huggingface.co/datasets/allenai/olmOCR-bench).
 
 Surya 2, per-source pass rate on the `default` preset (8,413 tests total):
 
@@ -430,7 +424,7 @@ RecognitionPredictor defaults to that mode.
 # Training
 
 Layout, OCR, and table recognition all share a single vision-language model
-(Qwen3.5-style architecture, ~770M params). It's trained on diverse document
+(Qwen3.5-style architecture, ~690M params). It's trained on diverse document
 images to emit either a layout JSON or a full-page HTML output, depending on
 prompt. Text-line detection is a separate small torch model — a modified
 EfficientViT segformer trained from scratch on document line annotations.
@@ -442,7 +436,7 @@ training stack, reach us at hi@datalab.to.
 
 This work would not have been possible without amazing open source AI work:
 
-- [Qwen3-VL](https://huggingface.co/Qwen) from Alibaba (architecture basis for the Surya 2 VLM)
+- [Qwen3-VL](https://huggingface.co/Qwen) from Alibaba
 - [vllm](https://github.com/vllm-project/vllm) and [llama.cpp](https://github.com/ggerganov/llama.cpp) for inference
 - [Segformer](https://arxiv.org/pdf/2105.15203.pdf) from NVIDIA
 - [EfficientViT](https://github.com/mit-han-lab/efficientvit) from MIT
@@ -461,6 +455,6 @@ If you use surya (or the associated models) in your work or research, please con
   author       = {Vikas Paruchuri and Datalab Team},
   title        = {Surya: A lightweight document OCR and analysis toolkit},
   year         = {2025},
-  howpublished = {\url{https://github.com/VikParuchuri/surya}},
+  howpublished = {\url{https://github.com/datalab-to/surya}},
   note         = {GitHub repository},
 }

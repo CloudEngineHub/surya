@@ -31,6 +31,9 @@ BASELINE_MAX_BATCHED_TOKENS = 8192
 BASELINE_MAX_NUM_SEQS = 32
 
 GPU_VRAM_GB = {
+    "b300": 270,
+    "b200": 180,
+    "h200": 141,
     "h100": 80,
     "a100-80": 80,
     "a100": 40,
