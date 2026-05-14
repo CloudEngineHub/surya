@@ -67,40 +67,6 @@ ALLOWED_ATTRIBUTES = [
 # Block labels we don't run OCR on.
 SKIP_OCR_LABELS = {"Figure", "Image", "Diagram", "Blank-Page"}
 
-LAYOUT_LABELS = """- Caption
-- Footnote
-- Equation-Block
-- List-Group
-- Page-Header
-- Page-Footer
-- Image
-- Section-Header
-- Table
-- Text
-- Complex-Block
-- Code-Block
-- Form
-- Table-Of-Contents
-- Figure
-- Chemical-Block
-- Diagram
-- Bibliography
-- Blank-Page"""
-
-GUIDELINES = f"""Only use these tags {ALLOWED_TAGS}, and these attributes {ALLOWED_ATTRIBUTES}.
-
-Guidelines:
-* Inline math: Surround math with <math>...</math> tags. Math expressions should be rendered in KaTeX-compatible LaTeX. Use display for block math.
-* Tables: Use colspan and rowspan attributes to match table structure.
-* Formatting: Maintain consistent formatting with the image, including spacing, indentation, subscripts/superscripts, and special characters.
-* Images: Include a description of any images in the alt attribute of an <img> tag. Do not fill out the src property. Describe in detail inside the div tag. Also convert charts to high fidelity data, and convert diagrams to mermaid.
-* Forms: Mark checkboxes and radio buttons properly.
-* Text: join lines together properly into paragraphs using <p>...</p> tags.  Use <br> tags for line breaks within paragraphs, but only when absolutely necessary to maintain meaning.
-* Chemistry: Use <chem>...</chem> tags for chemical formulas with reactive SMILES.
-* Lists: Preserve indents and proper list markers.
-* Use the simplest possible HTML structure that accurately represents the content of the block.
-* Make sure the text is accurate and easy for a human to read and interpret.  Reading order should be correct and natural."""
-
 LAYOUT_PROMPT = (
     "Output the layout of this image as JSON. Each entry is a dict with "
     '"label", "bbox", and "count" fields. Bbox is x0 y0 x1 y1, normalized 0-1000.'

@@ -1,11 +1,11 @@
 [project]
 name = "surya-ocr"
-version = "2.0.0a0"
-description = "OCR, layout, reading order, and table recognition via VLM (vllm + llama.cpp)."
+version = "1.0.0a0"
+description = "OCR, layout, reading order, and table recognition in 90+ languages."
 readme = "README.md"
 license = { text = "Apache-2.0" }
 authors = [
-    { name = "Vik Paruchuri", email = "vik.paruchuri@gmail.com" },
+    { name = "Vik Paruchuri", email = "vik@datalab.to" },
 ]
 requires-python = ">=3.10,<4"
 keywords = ["ocr", "pdf", "text detection", "text recognition", "tables"]
@@ -30,7 +30,7 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/VikParuchuri/surya"
+Repository = "https://github.com/datalab-to/surya"
 
 [project.scripts]
 surya_detect = "surya.scripts.detect_text:detect_text_cli"

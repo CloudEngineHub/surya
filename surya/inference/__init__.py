@@ -3,7 +3,7 @@
 One process owns one SuryaInferenceManager. The manager wraps a single backend
 (vllm | llamacpp) which speaks OpenAI-compatible chat completions.
 
-Predictors take the manager via explicit injection (see surya/models.py).
+Predictors take the manager via explicit injection at construction time.
 """
 
 from __future__ import annotations

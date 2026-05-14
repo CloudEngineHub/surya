@@ -24,9 +24,7 @@ from surya.layout.schema import LayoutResult
 from surya.logging import get_logger
 from surya.recognition.schema import (
     BlockOCRResult,
-    OCRResult,
     PageOCRResult,
-    TextLine,
 )
 from surya.settings import settings
 
@@ -251,23 +249,3 @@ class RecognitionPredictor:
                 )
             results.append(PageOCRResult(blocks=blocks, image_bbox=page_bbox))
         return results
-
-    def to_legacy_ocr_results(
-        self, page_results: List[PageOCRResult]
-    ) -> List[OCRResult]:
-        """Compatibility shim: map BlockOCRResult → OCRResult.text_lines for old
-        downstream code that hasn't migrated yet. One TextLine per block, no chars."""
-        out: List[OCRResult] = []
-        for page in page_results:
-            lines: List[TextLine] = []
-            for blk in page.blocks:
-                lines.append(
-                    TextLine(
-                        polygon=blk.polygon,
-                        text=blk.html,
-                        chars=[],
-                        confidence=blk.confidence,
-                    )
-                )
-            out.append(OCRResult(text_lines=lines, image_bbox=page.image_bbox))
-        return out

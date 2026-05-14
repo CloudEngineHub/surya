@@ -1,4 +1,4 @@
-"""vllm backend: spawns the vllm/vllm-openai docker image with MTP=3."""
+"""vllm backend: spawns the vllm/vllm-openai docker image with MTP=2."""
 
 from __future__ import annotations
 
@@ -80,7 +80,6 @@ class VllmBackend(Backend):
     def __init__(self):
         self.handle: Optional[ServerHandle] = None
         self._client: Optional[OpenAI] = None
-        self._container_name: Optional[str] = None
 
     def start(self) -> ServerHandle:
         if self.handle is not None:
@@ -113,7 +112,6 @@ class VllmBackend(Backend):
 
         def spawn_fn(port: int) -> SpawnHandle:
             container_name = f"surya-vllm-{port}"
-            self._container_name = container_name
             hf_cache = os.path.expanduser(settings.DOCKER_HF_CACHE_PATH)
             cmd = [
                 docker,

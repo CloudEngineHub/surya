@@ -15,7 +15,6 @@ class Settings(BaseSettings):
     IMAGE_DPI: int = 96  # used for layout, recognition, and table rec
     IMAGE_DPI_HIGHRES: int = 192
     IN_STREAMLIT: bool = False
-    FLATTEN_PDF: bool = True
     DISABLE_TQDM: bool = False
     S3_BASE_URL: str = "https://models.datalab.to"
     PARALLEL_DOWNLOAD_WORKERS: int = 10
@@ -23,7 +22,6 @@ class Settings(BaseSettings):
     LOGLEVEL: str = "INFO"
 
     # Paths
-    DATA_DIR: str = "data"
     RESULT_DIR: str = "results"
     BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     FONT_DIR: str = os.path.join(BASE_DIR, "static", "fonts")
@@ -39,7 +37,7 @@ class Settings(BaseSettings):
         return "cpu"
 
     # ---- Surya2 inference (VLM-backed: vllm | llamacpp) ---------------------
-    SURYA_MODEL_CHECKPOINT: str = "datalab-to/surya-2.1.2"
+    SURYA_MODEL_CHECKPOINT: str = "datalab-to/surya-2.1.2-mtp"
     SURYA_GGUF_REPO: str = "datalab-to/surya-ocr-2-gguf"
     SURYA_GGUF_MODEL_FILE: str = "surya-2.gguf"
     SURYA_GGUF_MMPROJ_FILE: str = "surya-2-mmproj.gguf"
@@ -90,7 +88,7 @@ class Settings(BaseSettings):
     VLLM_MAX_MODEL_LEN: int = 18000
     VLLM_GPU_MEMORY_UTILIZATION: float = 0.85
     VLLM_ENABLE_MTP: bool = True
-    VLLM_MTP_TOKENS: int = 3
+    VLLM_MTP_TOKENS: int = 2
     VLLM_EXTRA_ARGS: Optional[str] = None
     DOCKER_HF_CACHE_PATH: str = "~/.cache/huggingface"
 
@@ -103,7 +101,6 @@ class Settings(BaseSettings):
     # ---- Detection (kept) ---------------------------------------------------
     DETECTOR_BATCH_SIZE: Optional[int] = None
     DETECTOR_MODEL_CHECKPOINT: str = "s3://text_detection/2025_05_07"
-    DETECTOR_BENCH_DATASET_NAME: str = "vikp/doclaynet_bench"
     DETECTOR_IMAGE_CHUNK_HEIGHT: int = 1400
     DETECTOR_TEXT_THRESHOLD: float = 0.6
     DETECTOR_BLANK_THRESHOLD: float = 0.35
@@ -115,11 +112,6 @@ class Settings(BaseSettings):
     OCR_ERROR_MODEL_CHECKPOINT: str = "s3://ocr_error_detection/2025_02_18"
     OCR_ERROR_BATCH_SIZE: Optional[int] = None
 
-    # ---- Layout / Recognition / Table-rec batch sizes (CLI scripts) -------
-    LAYOUT_BATCH_SIZE: Optional[int] = None
-    RECOGNITION_BATCH_SIZE: Optional[int] = None
-    TABLE_REC_BATCH_SIZE: Optional[int] = None
-
     # ---- Debug / draw fonts (label rendering on annotated images) ----------
     RECOGNITION_RENDER_FONTS: Dict[str, str] = {
         "all": os.path.join(FONT_DIR, "GoNotoCurrent-Regular.ttf"),
@@ -130,9 +122,6 @@ class Settings(BaseSettings):
     RECOGNITION_FONT_DL_BASE: str = (
         "https://github.com/satbyy/go-noto-universal/releases/download/v7.0"
     )
-
-    # ---- Tesseract ---------------------------------------------------------
-    TESSDATA_PREFIX: Optional[str] = None
 
     @computed_field
     def MODEL_DTYPE(self) -> torch.dtype:
