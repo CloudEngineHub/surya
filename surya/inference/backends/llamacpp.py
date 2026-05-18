@@ -109,6 +109,28 @@ class LlamaCppBackend(Backend):
         else:
             model_path, mmproj_path = _download_gguf_files()
 
+        # Total KV-cache budget. llama-server divides --ctx-size across
+        # --parallel slots, so a too-small total silently truncates outputs
+        # once each slot's share fills. Scale with parallel by default;
+        # SURYA_INFERENCE_CTX_SIZE overrides to a fixed value if set.
+        parallel = settings.SURYA_INFERENCE_PARALLEL
+        per_slot = settings.SURYA_INFERENCE_CTX_PER_SLOT
+        ctx_size = settings.SURYA_INFERENCE_CTX_SIZE
+        if ctx_size is None:
+            ctx_size = max(16384, parallel * per_slot)
+        effective_per_slot = ctx_size // max(parallel, 1)
+        logger.info(
+            f"llama-server ctx-size={ctx_size} "
+            f"(~{effective_per_slot}/slot × {parallel} parallel slots)"
+        )
+        if effective_per_slot < per_slot:
+            logger.warning(
+                f"per-slot ctx ({effective_per_slot}) is below recommended "
+                f"{per_slot}; outputs may truncate. Raise "
+                f"SURYA_INFERENCE_CTX_SIZE or SURYA_INFERENCE_CTX_PER_SLOT, "
+                f"or lower SURYA_INFERENCE_PARALLEL."
+            )
+
         def spawn_fn(port: int) -> SpawnHandle:
             cmd = [
                 binary,
@@ -123,9 +145,9 @@ class LlamaCppBackend(Backend):
                 "--port",
                 str(port),
                 "--parallel",
-                str(settings.SURYA_INFERENCE_PARALLEL),
+                str(parallel),
                 "--ctx-size",
-                str(settings.SURYA_INFERENCE_CTX_SIZE),
+                str(ctx_size),
                 "--no-mmproj-offload" if settings.LLAMA_CPP_NO_MMPROJ_OFFLOAD else "",
                 "--alias",
                 settings.SURYA_MODEL_CHECKPOINT,

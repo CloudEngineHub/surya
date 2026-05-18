@@ -3929,7 +3929,7 @@ wheels = [
 
 [[package]]
 name = "surya-ocr"
-version = "1.0.0a0"
+version = "0.20.0"
 source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },

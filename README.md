@@ -17,7 +17,7 @@
 
 # Surya
 
-Surya is a document OCR toolkit powered by a 690M param model that does:
+Surya is a document OCR toolkit powered by a 650M param model that does:
 
 - Full-page OCR with layout, ranking near the top of [olmOCR-bench](https://huggingface.co/datasets/allenai/olmOCR-bench)
 - Line-level text detection
@@ -362,7 +362,7 @@ standard quality benchmark for document parsers.
 | Chandra OCR 2 (Datalab)     |   5.3B |    85.9 |
 | dots.mocr                   |   3.0B |    83.9 |
 | LightOnOCR 2-1B \*          |   1.0B |    83.2 |
-| **Surya OCR 2** (Datalab)   | **0.69B** | **83.1** |
+| **Surya OCR 2** (Datalab)   | **0.65B** | **83.1** |
 | Chandra OCR 1 (Datalab)     |   9.0B |    83.1 |
 | olmOCR (anchored)           |   8.3B |    77.4 |
 | GOT OCR                     |   0.6B |    48.3 |
@@ -379,26 +379,24 @@ Surya 2, per-source pass rate on the `default` preset (8,413 tests total):
 
 ## Throughput
 
-Full-page OCR, 96 DPI input (~3,000 output tokens/page average), measured
+Full-page OCR, 96 DPI input (~2,400 output tokens/page average), measured
 client-side against a running inference server.
 
 ### RTX 5090 (vllm)
 
 `vllm/vllm-openai:v0.20.1`, single RTX 5090 (32 GB).
 
-| Concurrency | Pages/s | Tokens/s |
-|---:|---:|---:|
-| 128 | **5.64** | **13,829** |
+| Concurrency | Pages/s |  Tokens/s | p50 (ms) | p95 (ms) | avg tok/page |
+|------------:|--------:|----------:|---:|---:|---:|
+|         128 |    5.35 |    12,884 | 18,915 | 42,538 | 2,410 |
 
 ### Apple Silicon (llama.cpp / Metal)
 
-`llama-server` with Metal backend, one process per `--parallel` level.
+`llama-server` with Metal backend.
 
-| `--parallel` | Pages/s | Tokens/s | p50 (ms) | p95 (ms) |
-|---:|---:|---:|---:|---:|
-| 4 | 0.217 |  222 | 18,122 | 19,676 |
-| **8** | **0.269** | **270** | 27,549 | 42,730 |
-| 16 | 0.264 |  286 | 53,166 | 70,378 |
+| `--parallel` |  Pages/s | Tokens/s | p50 (ms) | p95 (ms) | avg tok/page | Power |
+|-------------:|---------:|---------:|---:|---:|---:|---:|
+|            8 |    0.108 |      254 | 59,313 | 129,173 | 2,360 | ~30 W |
 
 ## Reproducing
 
@@ -409,7 +407,7 @@ We score Surya 2 on olmOCR-bench by serving the model with `vllm` (or
 # Training
 
 Layout, OCR, and table recognition all share a single vision-language model
-(Qwen3.5-style architecture, ~690M params). It's trained on diverse document
+(Qwen3.5-style architecture, ~650M params). It's trained on diverse document
 images to emit either a layout JSON or a full-page HTML output, depending on
 prompt. Text-line detection is a separate small torch model — a modified
 EfficientViT segformer trained from scratch on document line annotations.

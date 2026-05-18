@@ -52,7 +52,15 @@ class Settings(BaseSettings):
     SURYA_INFERENCE_HOST: str = "127.0.0.1"
     SURYA_INFERENCE_PORT: Optional[int] = None  # None = pick a free port
     SURYA_INFERENCE_PARALLEL: int = 8
-    SURYA_INFERENCE_CTX_SIZE: int = 16384
+    # Per-parallel-slot KV-cache budget for the llama.cpp backend. Worst-case
+    # one OCR request: ~2k for image prefill + SURYA_MAX_TOKENS_FULL_PAGE
+    # (8192) generation + ~2k prompt/chat-template overhead ≈ 12k. Below this
+    # llama-server silently truncates outputs once a slot fills.
+    SURYA_INFERENCE_CTX_PER_SLOT: int = 12288
+    # Optional override for the *total* ctx passed to llama-server. When None
+    # (default), total = max(16384, PARALLEL * CTX_PER_SLOT). Set this only
+    # if you've hand-tuned for a specific machine.
+    SURYA_INFERENCE_CTX_SIZE: Optional[int] = None
     SURYA_INFERENCE_TIMEOUT_SECONDS: float = 600.0
     SURYA_INFERENCE_STARTUP_TIMEOUT: float = 600.0
     SURYA_INFERENCE_LOGPROBS: bool = True
