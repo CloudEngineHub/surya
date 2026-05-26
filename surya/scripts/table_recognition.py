@@ -33,7 +33,9 @@ logger = get_logger()
 def table_recognition_cli(
     input_path: str, skip_table_detection: bool, mode: str, **kwargs
 ):
-    loader = CLILoader(input_path, kwargs)
+    # Layout runs on the low-DPI render; table crops come from the high-DPI
+    # image so the table_rec model sees readable cell content.
+    loader = CLILoader(input_path, kwargs, highres=True)
 
     manager = SuryaInferenceManager()
     layout_predictor = LayoutPredictor(manager)
@@ -53,13 +55,16 @@ def table_recognition_cli(
     table_counts_per_img = []
 
     if skip_table_detection:
-        for img in loader.images:
+        for img in loader.highres_images:
             table_imgs.append(img)
             table_counts.append(1)
             table_counts_per_img.append(0)
     else:
-        layout_predictions = layout_predictor(loader.images)
-        for layout_pred, img in zip(layout_predictions, loader.images):
+        layout_predictions = layout_predictor(
+            loader.images,
+            target_image_sizes=[img.size for img in loader.highres_images],
+        )
+        for layout_pred, img in zip(layout_predictions, loader.highres_images):
             tables_on_page = [
                 line
                 for line in layout_pred.bboxes

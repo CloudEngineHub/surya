@@ -37,8 +37,6 @@ Commercial self-hosting of the model weights requires a license — see [Commerc
 
 ## Model Information
 
-Surya is a 650M param model that scores 83.3% on the olmocr bench - better than models 10x larger.
-
 <img src="static/images/olmocr_size_chart.png" width="700"/>
 
 
@@ -130,7 +128,7 @@ surya_ocr DATA_PATH
 The `results.json` file contains a dict keyed by input filename (no extension). Each value is a list of page dicts. Each page dict contains:
 
 - `blocks` - per-block OCR results in reading order
-  - `label` - canonicalized layout label (e.g. `Text`, `Section-Header`, `Table`, `Equation-Block`, `Picture`, `Form`, `Page-Header`, ...). See `surya/inference/prompts.py:LAYOUT_LABEL_SET` for the full set.
+  - `label` - canonicalized layout label (e.g. `Text`, `SectionHeader`, `Table`, `Equation`, `Picture`, `Form`, `PageHeader`, ...). See `surya/layout/label.py:LAYOUT_PRED_RELABEL` for the full canonical-name set.
   - `raw_label` - original label emitted by the model, before canonicalization
   - `reading_order` - 0-indexed position in layout output
   - `html` - block content as HTML (math wrapped in `<math>...</math>`, tables as `<table>...</table>`, etc.). `""` if the block was skipped
@@ -194,7 +192,7 @@ The `results.json` file will contain a json dictionary where the keys are the in
 
 **Performance tips**
 
-Detection is a torch model. `DETECTOR_BATCH_SIZE` (default `36`) controls VRAM usage on GPU; raise it on larger cards.
+Detection is a torch model. `DETECTOR_BATCH_SIZE` defaults to an auto-picked value at runtime; override the env var to control VRAM usage on GPU and raise it on larger cards.
 
 ### From python
 
@@ -224,7 +222,7 @@ The `results.json` file contains a dict keyed by input filename (no extension). 
 - `bboxes` - layout boxes in reading order
   - `polygon` - 4-corner polygon `[[x0,y0],[x1,y0],[x1,y1],[x0,y1]]`
   - `bbox` - axis-aligned `[x0, y0, x1, y1]` derived from the polygon
-  - `label` - canonicalized label. One of `Caption`, `Footnote`, `Equation-Block`, `List-Group`, `Page-Header`, `Page-Footer`, `Image`, `Section-Header`, `Table`, `Text`, `Complex-Block`, `Code-Block`, `Form`, `Table-Of-Contents`, `Figure`, `Chemical-Block`, `Diagram`, `Bibliography`, `Blank-Page`
+  - `label` - canonicalized label. One of `Caption`, `Footnote`, `Equation`, `ListGroup`, `PageHeader`, `PageFooter`, `Picture`, `SectionHeader`, `Table`, `Text`, `Figure`, `Code`, `Form`, `TableOfContents`, `ChemicalBlock`, `Diagram`, `Bibliography`, `BlankPage`
   - `raw_label` - original label emitted by the model
   - `position` - 0-indexed reading order
   - `count` - model's token estimate for OCR'ing this block (rounded to multiples of 50; used to size the per-block decode budget)
@@ -250,7 +248,7 @@ layout_predictions = layout_predictor([Image.open(IMAGE_PATH)])
 
 ## Table Recognition
 
-This command will write out a json file with the detected table cells and row/column ids, along with row/column bounding boxes.  If you want to get cell positions and text, along with nice formatting, check out the [marker](https://www.github.com/VikParuchuri/marker) repo.  You can use the `TableConverter` to detect and extract tables in images and PDFs.  It supports output in json (with bboxes), markdown, and html.
+This command will write out a json file with the detected table cells and row/column ids, along with row/column bounding boxes.  If you want to get cell positions and text, along with nice formatting, check out the [marker](https://github.com/datalab-to/marker) repo.  You can use the `TableConverter` to detect and extract tables in images and PDFs.  It supports output in json (with bboxes), markdown, and html.
 
 ```shell
 surya_table DATA_PATH
@@ -340,7 +338,7 @@ If OCR isn't working properly:
 If you want to develop surya, you can install it manually with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-git clone https://github.com/VikParuchuri/surya.git
+git clone https://github.com/datalab-to/surya.git
 cd surya
 uv sync --group dev      # installs runtime + dev deps
 uv run surya_ocr ...     # or `uv shell` to enter the venv
@@ -355,7 +353,7 @@ standard quality benchmark for document parsers.
 
 ## olmOCR-bench
 
-Best-in-class accuracy under 1B parameters; pareto-optimal vs every model 3B and below.
+Pareto-optimal on the size-vs-score frontier, and best in class under 3B params.
 
 | Model                       | Params    | Score    |
 |-----------------------------|----------:|---------:|

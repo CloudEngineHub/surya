@@ -270,7 +270,10 @@ if "pdf" in filetype:
     page_number = st.sidebar.number_input(
         f"Page number out of {page_count}:", min_value=1, value=1, max_value=page_count
     )
-    pil_image = get_page_image(in_file, page_number, settings.IMAGE_DPI)
+    # Render at high DPI so the OCR / table-rec demos see fine glyphs.
+    # Layout + detection internally downsample (or accept the small perf hit
+    # at demo scale); we always render and display the high-DPI page here.
+    pil_image = get_page_image(in_file, page_number, settings.IMAGE_DPI_HIGHRES)
 else:
     pil_image = Image.open(in_file).convert("RGB")
     page_number = None
