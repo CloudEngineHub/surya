@@ -275,11 +275,11 @@ else:
     pil_image = Image.open(in_file).convert("RGB")
     page_number = None
 
+run_full_page_ocr = st.sidebar.button("Run Full-Page OCR")
 run_text_det = st.sidebar.button("Run Text Detection")
 run_layout = st.sidebar.button("Run Layout Analysis")
-run_block_ocr = st.sidebar.button("Run Block OCR")
-run_full_page_ocr = st.sidebar.button("Run Full-Page OCR")
 run_table_rec = st.sidebar.button("Run Table Rec")
+run_block_ocr = st.sidebar.button("Run Block OCR")
 run_ocr_errors = st.sidebar.button("Run bad-PDF-text detection")
 
 table_mode = st.sidebar.radio(

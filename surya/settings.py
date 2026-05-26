@@ -12,7 +12,7 @@ from platformdirs import user_cache_dir
 class Settings(BaseSettings):
     # General
     TORCH_DEVICE: Optional[str] = None
-    IMAGE_DPI: int = 96  # used for layout, recognition, and table rec
+    IMAGE_DPI: int = 192  # used for layout, recognition, and table rec
     IMAGE_DPI_HIGHRES: int = 192
     IN_STREAMLIT: bool = False
     DISABLE_TQDM: bool = False
@@ -77,7 +77,10 @@ class Settings(BaseSettings):
     SURYA_MAX_TOKENS_TABLE_REC: int = 3072
     SURYA_MAX_TOKENS_BLOCK_CEILING: int = 8192
     SURYA_MAX_TOKENS_FULL_PAGE: int = (
-        8192  # fallback path needs room for full-page HTML
+        # 12288 (vs 8192) buys +1pp overall on olmOCR-bench and +7.24pp on
+        # long_tiny_text — dense pages were truncating at 8k. Total budget
+        # fits within VLLM_MAX_MODEL_LEN=18000 after image prefill.
+        12288
     )
 
     # When a layout request fails to produce parseable JSON, fall back to

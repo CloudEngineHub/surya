@@ -17,12 +17,13 @@
 
 # Surya
 
-Surya is a document OCR toolkit powered by a 650M param model that does:
+Surya is an OCR toolkit powered by a 650M param model that does:
 
-- Full-page OCR with layout, ranking near the top of [olmOCR-bench](https://huggingface.co/datasets/allenai/olmOCR-bench)
+- Full-page OCR, scoring 83.3% on [olmOCR-bench](https://huggingface.co/datasets/allenai/olmOCR-bench) (top under 3B params)
+- Multilingual OCR - scores 87.2% on an internal benchmark set of 91 languages (more [here](#multilingual))
 - Line-level text detection
 - Layout analysis (table, image, header, etc.) with reading order
-- Table recognition (rows + columns + cell HTML)
+- Table recognition (rows + columns)
 
 It works on a range of documents (see [usage](#usage) and [benchmarks](#benchmarks)).
 
@@ -30,12 +31,13 @@ It works on a range of documents (see [usage](#usage) and [benchmarks](#benchmar
 
 Our managed platform runs both Surya, and variants of our highest accuracy model, [Chandra](https://github.com/datalab-to/chandra).
 
-If you have high volume workloads, we offer a batch processing service that can process 1B+ pages per week.
+Get started with **$5 in free credits** — [sign up](https://www.datalab.to/?utm_source=gh-surya) (takes under 30 seconds) or try our free [public playground](https://www.datalab.to/playground?utm_source=gh-surya).
 
-Get started with **$5 in free credits** — [sign up](https://www.datalab.to/?utm_source=gh-surya) (takes under 30 seconds) or try our [public playground](https://www.datalab.to/playground?utm_source=gh-surya).
+Commercial self-hosting of the model weights requires a license — see [Commercial usage](#commercial-usage). For on-prem licensing, [contact us](https://www.datalab.to/contact?utm_source=gh-surya-onprem).  If you have high volume workloads, we offer a batch processing service that can process 1B+ pages per week.
 
-Commercial self-hosting of the model weights requires a license — see [Commercial usage](#commercial-usage). For on-prem licensing, [contact us](https://www.datalab.to/contact?utm_source=gh-surya-onprem).
+## Model Information
 
+Surya is a 650M param model that scores 83.3% on the olmocr bench - better than models 10x larger.
 
 <img src="static/images/olmocr_size_chart.png" width="700"/>
 
@@ -53,20 +55,19 @@ Surya is named for the [Hindu sun god](https://en.wikipedia.org/wiki/Surya), who
 
 ## Examples
 
-Each row links to four annotated views of the same page: text-line detection,
-layout, reading order, and (when present) table recognition.
+Each row links to five annotated views of the same page: text-line detection, OCR, layout, reading order, and (when present) table recognition.
 
-| Name             |              Detection              |                                       Layout |                                          Order |                                       Table Rec |
-|------------------|:-----------------------------------:|---------------------------------------------:|------------------------------------------------:|------------------------------------------------:|
-| Newspaper        | [Image](static/images/newspaper.png) | [Image](static/images/newspaper_layout.png) | [Image](static/images/newspaper_reading.png) |                                                  |
-| Textbook         | [Image](static/images/textbook.png)  | [Image](static/images/textbook_layout.png)  | [Image](static/images/textbook_reading.png)  |                                                  |
-| Tax Form         | [Image](static/images/form.png)      | [Image](static/images/form_layout.png)      | [Image](static/images/form_reading.png)      | [Image](static/images/form_tablerec.png)      |
-| Handwritten Notes | [Image](static/images/handwritten.png) | [Image](static/images/handwritten_layout.png) | [Image](static/images/handwritten_reading.png) | [Image](static/images/handwritten_tablerec.png) |
-| Corporate Doc    | [Image](static/images/corporate.png) | [Image](static/images/corporate_layout.png) | [Image](static/images/corporate_reading.png) | [Image](static/images/corporate_tablerec.png) |
+| Name              |              Detection              |                                       OCR |                                       Layout |                                          Order |                                       Table Rec |
+|-------------------|:-----------------------------------:|------------------------------------------:|---------------------------------------------:|------------------------------------------------:|------------------------------------------------:|
+| Newspaper         | [Image](static/images/newspaper.png) | [Image](static/images/newspaper_text.png) | [Image](static/images/newspaper_layout.png) | [Image](static/images/newspaper_reading.png) |                                                  |
+| Textbook          | [Image](static/images/textbook.png)  | [Image](static/images/textbook_text.png)  | [Image](static/images/textbook_layout.png)  | [Image](static/images/textbook_reading.png)  |                                                  |
+| Tax Form          | [Image](static/images/form.png)      | [Image](static/images/form_text.png)      | [Image](static/images/form_layout.png)      | [Image](static/images/form_reading.png)      | [Image](static/images/form_tablerec.png)      |
+| Handwritten Notes | [Image](static/images/handwritten.png) | [Image](static/images/handwritten_text.png) | [Image](static/images/handwritten_layout.png) | [Image](static/images/handwritten_reading.png) | [Image](static/images/handwritten_tablerec.png) |
+| Corporate Doc     | [Image](static/images/corporate.png) | [Image](static/images/corporate_text.png) | [Image](static/images/corporate_layout.png) | [Image](static/images/corporate_reading.png) | [Image](static/images/corporate_tablerec.png) |
 
 # Commercial usage
 
-The Surya code is licensed under Apache 2.0. The model weights use a modified AI Pubs Open Rail-M license (free for research, personal use, and startups under $2M funding/revenue). For broader commercial licensing of the model weights, visit our pricing page [here](https://www.datalab.to/pricing?utm_source=gh-surya).
+The Surya code is licensed under Apache 2.0. The model weights use a modified AI Pubs Open Rail-M license (free for research, personal use, and startups under $5M funding/revenue). For broader commercial licensing of the model weights, visit our pricing page [here](https://www.datalab.to/pricing?utm_source=gh-surya).
 
 # Installation
 
@@ -354,18 +355,18 @@ standard quality benchmark for document parsers.
 
 ## olmOCR-bench
 
-<img src="static/images/olmocr_size_chart.png" width="700"/>
+Best-in-class accuracy under 1B parameters; pareto-optimal vs every model 3B and below.
 
-| Model                       | Params | Score   |
-|-----------------------------|-------:|--------:|
-| Infinity-Parser2-Pro        |  35.1B |    87.6 |
-| Chandra OCR 2 (Datalab)     |   5.3B |    85.9 |
-| dots.mocr                   |   3.0B |    83.9 |
-| LightOnOCR 2-1B \*          |   1.0B |    83.2 |
-| **Surya OCR 2** (Datalab)   | **0.65B** | **83.1** |
-| Chandra OCR 1 (Datalab)     |   9.0B |    83.1 |
-| olmOCR (anchored)           |   8.3B |    77.4 |
-| GOT OCR                     |   0.6B |    48.3 |
+| Model                       | Params    | Score    |
+|-----------------------------|----------:|---------:|
+| Infinity-Parser2-Pro        |     35.1B |     87.6 |
+| Chandra OCR 2 (Datalab)     |      5.3B |     85.9 |
+| dots.mocr                   |      3.0B |     83.9 |
+| **Surya OCR 2** (Datalab)   | **0.65B** | **83.3** |
+| LightOnOCR 2-1B \*          |      1.0B |     83.2 |
+| Chandra OCR 1 (Datalab)     |      9.0B |     83.1 |
+| olmOCR (anchored)           |      8.3B |     77.4 |
+| GOT OCR                     |      0.6B |     48.3 |
 
 \* **LightOnOCR 2-1B** uses a different benchmark methodology than the other entries (see their [release notes](https://huggingface.co/lightonai/LightOnOCR-2-1B)); the score is included for context but is not directly comparable.
 
@@ -375,7 +376,38 @@ Surya 2, per-source pass rate on the `default` preset (8,413 tests total):
 
 | ArXiv | Base | Hdr/Ftr | TinyTxt | MultCol | OldScan | OldMath | Tables |
 |------:|-----:|--------:|--------:|--------:|--------:|--------:|-------:|
-|  88.7 | 99.9 |    92.1 |    86.4 |    82.6 |    42.8 |    85.8 |   86.6 |
+|  88.3 | 99.7 |    92.5 |    93.7 |    82.4 |    41.8 |    81.4 |   86.6 |
+
+## Multilingual
+
+We also evaluate Surya 2 against a 91-language internal benchmark covering
+text accuracy, layout, tables, math, and reading order in documents drawn
+from each language.
+
+**Overall pass rate: 87.2% across 91 languages.** 38 of the
+91 languages score ≥ 90%; 76 score ≥ 80%.
+
+Top 15 widely-spoken languages:
+
+| Code | Language    | Score |
+|------|-------------|------:|
+| `ar` | Arabic      | 72.7% |
+| `bn` | Bengali     | 82.7% |
+| `zh` | Chinese     | 82.5% |
+| `en` | English     | 92.3% |
+| `fr` | French      | 89.3% |
+| `de` | German      | 89.7% |
+| `hi` | Hindi       | 82.2% |
+| `it` | Italian     | 93.0% |
+| `ja` | Japanese    | 86.2% |
+| `ko` | Korean      | 86.7% |
+| `fa` | Persian     | 82.3% |
+| `pt` | Portuguese  | 86.1% |
+| `ru` | Russian     | 88.8% |
+| `es` | Spanish     | 90.7% |
+| `vi` | Vietnamese  | 73.2% |
+
+See [static/docs/multilingual.md](static/docs/multilingual.md) for the full 91-language table.
 
 ## Throughput
 
@@ -401,7 +433,7 @@ client-side against a running inference server.
 ## Reproducing
 
 We score Surya 2 on olmOCR-bench by serving the model with `vllm` (or
-`llama.cpp`) and running the official olmOCR-bench harness from
+`llama.cpp`) and running the olmOCR-bench harness from
 [allenai/olmocr](https://github.com/allenai/olmocr), with some adjustments applied to account for our output HTML format.
 
 # Training

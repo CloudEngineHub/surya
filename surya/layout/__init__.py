@@ -4,11 +4,12 @@ from typing import List, Optional
 
 from PIL import Image
 
+from surya.common.blank import is_blank_region
 from surya.inference import SuryaInferenceManager, get_default_manager
 from surya.inference.parsers import denorm_bbox, parse_layout
 from surya.inference.prompts import LAYOUT_JSON_SCHEMA, PROMPT_TYPE_LAYOUT
 from surya.inference.schema import BatchInputItem
-from surya.layout.label import LAYOUT_PRED_RELABEL
+from surya.layout.label import LAYOUT_PRED_RELABEL, TEXT_LABELS
 from surya.layout.schema import LayoutBox, LayoutResult
 from surya.logging import get_logger
 from surya.settings import settings
@@ -94,19 +95,39 @@ class LayoutPredictor:
                 continue
 
             confidence = out.mean_token_prob if out.mean_token_prob is not None else 1.0
+            img_w, img_h = img.size
             boxes: List[LayoutBox] = []
-            for idx, blk in enumerate(parsed):
-                pixel_bbox = denorm_bbox(blk.bbox, w, h, scale=settings.BBOX_SCALE)
+            dropped_blank = 0
+            for blk in parsed:
                 canon = LAYOUT_PRED_RELABEL.get(blk.label, blk.label)
+                # Drop text-labeled blocks the model hallucinated over an
+                # essentially-blank region (mostly white OR near-uniform
+                # color). Visual blocks (Picture / Figure / Table / etc.)
+                # are allowed to be uniform — that's normal content.
+                if canon in TEXT_LABELS:
+                    img_bbox = denorm_bbox(
+                        blk.bbox, img_w, img_h, scale=settings.BBOX_SCALE
+                    )
+                    x0, y0, x1, y1 = (max(0, int(v)) for v in img_bbox)
+                    if x1 > x0 and y1 > y0:
+                        if is_blank_region(img.crop((x0, y0, x1, y1))):
+                            dropped_blank += 1
+                            continue
+                pixel_bbox = denorm_bbox(blk.bbox, w, h, scale=settings.BBOX_SCALE)
                 boxes.append(
                     LayoutBox(
                         polygon=list(pixel_bbox),
                         label=canon,
                         raw_label=blk.label,
-                        position=idx,
+                        position=len(boxes),
                         count=blk.count,
                         confidence=confidence,
                     )
+                )
+            if dropped_blank:
+                logger.info(
+                    f"dropped {dropped_blank} text-labeled layout block(s) over "
+                    f"blank/uniform regions"
                 )
             results.append(
                 LayoutResult(

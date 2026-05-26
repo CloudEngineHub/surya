@@ -10,6 +10,7 @@ from typing import List, Optional
 
 from PIL import Image
 
+from surya.common.blank import is_blank_region
 from surya.inference import SuryaInferenceManager, get_default_manager
 from surya.inference.parsers import clean_block_html, parse_full_page_html
 from surya.inference.prompts import (
@@ -19,7 +20,7 @@ from surya.inference.prompts import (
 )
 from surya.inference.schema import BatchInputItem
 from surya.inference.util import image_token_budget
-from surya.layout.label import LAYOUT_PRED_RELABEL
+from surya.layout.label import LAYOUT_PRED_RELABEL, TEXT_LABELS
 from surya.layout.schema import LayoutResult
 from surya.logging import get_logger
 from surya.recognition.schema import (
@@ -46,6 +47,65 @@ def _crop_block(image: Image.Image, polygon, pad: int = 4) -> Image.Image:
     if x1 <= x0 or y1 <= y0:
         return image.crop((0, 0, 1, 1))
     return image.crop((x0, y0, x1, y1))
+
+
+def _drop_blank_text_blocks(
+    image: Image.Image,
+    blocks: List[BlockOCRResult],
+) -> List[BlockOCRResult]:
+    """Drop text-labeled blocks whose source page region is essentially blank.
+
+    Full-page OCR can emit text divs for regions that are visually empty
+    (margins, gutter space) — the model hallucinates a paragraph where there
+    is none. We crop the region, count near-white pixels, and drop the block
+    when the fraction exceeds ``blank_pixel_fraction``. Only text-like labels
+    (see ``TEXT_LABELS``) are eligible: tables, forms, equations, and visual
+    blocks may legitimately contain large whitespace and are left untouched.
+    """
+    kept: List[BlockOCRResult] = []
+    dropped = 0
+    for blk in blocks:
+        if blk.label not in TEXT_LABELS or blk.skipped or blk.error:
+            kept.append(blk)
+            continue
+        crop = _crop_block(image, blk.polygon)
+        if not is_blank_region(crop):
+            kept.append(blk)
+            continue
+        dropped += 1
+    if dropped:
+        logger.info(f"dropped {dropped} blank text block(s) from full-page OCR")
+    return kept
+
+
+def _detect_repeat_loop(
+    text: str,
+    base_max_repeats: int = 4,
+    window_size: int = 500,
+    scaling_factor: float = 3.0,
+) -> bool:
+    """True iff the tail of ``text`` ends in a repeating sequence.
+
+    Ported from chandra's detect_repeat_token. For each candidate length
+    1..window_size/2, takes that many trailing chars and counts consecutive
+    identical preceding blocks. Shorter loops need many repeats to count;
+    longer ones only need a few. Catches the typical decoder failure mode
+    where a page output gets stuck emitting the same div / phrase until it
+    hits max_tokens.
+    """
+    if not text:
+        return False
+    for seq_len in range(1, window_size // 2 + 1):
+        candidate = text[-seq_len:]
+        max_repeats = int(base_max_repeats * (1 + scaling_factor / seq_len))
+        repeats = 0
+        pos = len(text) - seq_len
+        while pos >= 0 and text[pos : pos + seq_len] == candidate:
+            repeats += 1
+            pos -= seq_len
+        if repeats > max_repeats:
+            return True
+    return False
 
 
 class RecognitionPredictor:
@@ -94,11 +154,12 @@ class RecognitionPredictor:
             full_page = layout_results is None
         if full_page:
             if layout_results is not None:
-                logger.warning(
+                logger.info(
                     "RecognitionPredictor called with full_page=True and "
-                    "layout_results; layout_results will be ignored."
+                    "layout_results; layout will be used as fallback if the "
+                    "full-page output devolves into a repetition loop."
                 )
-            return self._full_page_ocr(images)
+            return self._full_page_ocr(images, fallback_layout=layout_results)
         if layout_results is None:
             raise ValueError("layout_results required when full_page=False")
         if len(images) != len(layout_results):
@@ -196,8 +257,19 @@ class RecognitionPredictor:
             )
         return results
 
-    def _full_page_ocr(self, images: List[Image.Image]) -> List[PageOCRResult]:
-        """One HIGH_ACCURACY_BBOX_PROMPT request per page; parses divs into blocks."""
+    def _full_page_ocr(
+        self,
+        images: List[Image.Image],
+        fallback_layout: Optional[List[LayoutResult]] = None,
+    ) -> List[PageOCRResult]:
+        """One HIGH_ACCURACY_BBOX_PROMPT request per page; parses divs into blocks.
+
+        On per-page failure (parse error, empty output, or a detected
+        repetition loop in the decoder output), falls back to layout +
+        block-mode OCR for that page only. ``fallback_layout``, if given,
+        provides per-page LayoutResults to use on fallback; otherwise the
+        LayoutPredictor is invoked lazily for just the affected pages.
+        """
         manager = self.manager or get_default_manager()
         batch = [
             BatchInputItem(
@@ -211,19 +283,44 @@ class RecognitionPredictor:
         outputs = manager.generate(batch)
         out_by_page = {o.metadata["page_idx"]: o for o in outputs}
 
-        results: List[PageOCRResult] = []
+        results: List[Optional[PageOCRResult]] = [None] * len(images)
+        needs_fallback: List[int] = []
         for page_idx, img in enumerate(images):
             w, h = img.size
             page_bbox = [0, 0, float(w), float(h)]
             out = out_by_page.get(page_idx)
-            if out is None or out.error or not out.raw:
-                results.append(PageOCRResult(blocks=[], image_bbox=page_bbox))
+            if out is None or out.error:
+                # Hard failure (request lost / server error). Always fallback.
+                needs_fallback.append(page_idx)
+                continue
+            if not out.raw:
+                # Empty model output. If the page is genuinely blank, the
+                # model is correct — return an empty result. Only fall back
+                # when the page has content the model failed to emit.
+                if is_blank_region(img):
+                    results[page_idx] = PageOCRResult(blocks=[], image_bbox=page_bbox)
+                else:
+                    logger.info(
+                        f"empty full-page output for non-blank page {page_idx}; "
+                        f"falling back to layout + block OCR"
+                    )
+                    needs_fallback.append(page_idx)
+                continue
+            if _detect_repeat_loop(out.raw):
+                logger.info(
+                    f"full-page output for page {page_idx} appears to loop; "
+                    f"falling back to layout + block OCR"
+                )
+                needs_fallback.append(page_idx)
                 continue
             try:
                 parsed = parse_full_page_html(out.raw)
             except Exception as e:
-                logger.warning(f"Full-page parse failed for page {page_idx}: {e}")
-                results.append(PageOCRResult(blocks=[], image_bbox=page_bbox))
+                logger.warning(
+                    f"Full-page parse failed for page {page_idx}: {e}; "
+                    f"falling back to layout + block OCR"
+                )
+                needs_fallback.append(page_idx)
                 continue
             confidence = out.mean_token_prob if out.mean_token_prob is not None else 1.0
             blocks: List[BlockOCRResult] = []
@@ -247,5 +344,33 @@ class RecognitionPredictor:
                         confidence=confidence,
                     )
                 )
-            results.append(PageOCRResult(blocks=blocks, image_bbox=page_bbox))
-        return results
+            blocks = _drop_blank_text_blocks(img, blocks)
+            results[page_idx] = PageOCRResult(blocks=blocks, image_bbox=page_bbox)
+
+        # Block-mode fallback for any pages whose full-page output failed or looped.
+        if needs_fallback:
+            fb_images = [images[i] for i in needs_fallback]
+            if fallback_layout is not None:
+                fb_layouts = [fallback_layout[i] for i in needs_fallback]
+            else:
+                # Lazy import to avoid the surya.layout ↔ surya.recognition cycle.
+                from surya.layout import LayoutPredictor
+
+                logger.info(
+                    f"running layout for {len(fb_images)} page(s) requiring "
+                    f"block-mode fallback"
+                )
+                fb_layouts = LayoutPredictor(self.manager)(fb_images)
+            fb_results = self.__call__(fb_images, fb_layouts, full_page=False)
+            for fb_idx, page_idx in enumerate(needs_fallback):
+                results[page_idx] = fb_results[fb_idx]
+
+        # Backfill any still-None pages with empty results (defensive — shouldn't happen).
+        out_results: List[PageOCRResult] = []
+        for page_idx, img in enumerate(images):
+            r = results[page_idx]
+            if r is None:
+                w, h = img.size
+                r = PageOCRResult(blocks=[], image_bbox=[0, 0, float(w), float(h)])
+            out_results.append(r)
+        return out_results

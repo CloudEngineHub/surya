@@ -1,0 +1,101 @@
+# Surya 2 — full 91-language results
+
+Overall pass rate: **87.2%** across 91 languages (32,055 tests). Each language
+has between ~30 and ~750 tests.
+
+Sorted alphabetically by language name. See [README](../../README.md#multilingual)
+for the curated subset.
+
+| Code | Language          | Score |
+|------|-------------------|------:|
+| `af` | Afrikaans         | 87.7% |
+| `sq` | Albanian          | 88.9% |
+| `am` | Amharic           | 74.6% |
+| `ar` | Arabic            | 72.7% |
+| `hy` | Armenian          | 90.1% |
+| `as` | Assamese          | 86.4% |
+| `az` | Azerbaijani       | 91.5% |
+| `eu` | Basque            | 85.5% |
+| `be` | Belarusian        | 98.5% |
+| `bn` | Bengali           | 82.7% |
+| `bs` | Bosnian           | 92.5% |
+| `br` | Breton            | 93.6% |
+| `bg` | Bulgarian         | 95.4% |
+| `my` | Burmese           | 88.2% |
+| `ca` | Catalan           | 86.4% |
+| `zh` | Chinese           | 82.5% |
+| `hr` | Croatian          | 92.5% |
+| `cs` | Czech             | 85.8% |
+| `da` | Danish            | 84.5% |
+| `nl` | Dutch             | 86.5% |
+| `en` | English           | 92.3% |
+| `eo` | Esperanto         | 83.1% |
+| `et` | Estonian          | 76.8% |
+| `fi` | Finnish           | 87.5% |
+| `fr` | French            | 89.3% |
+| `gl` | Galician          | 85.5% |
+| `ka` | Georgian          | 91.4% |
+| `de` | German            | 89.7% |
+| `el` | Greek             | 80.7% |
+| `gu` | Gujarati          | 83.4% |
+| `ha` | Hausa             | 89.6% |
+| `he` | Hebrew            | 90.9% |
+| `hi` | Hindi             | 82.2% |
+| `hu` | Hungarian         | 90.6% |
+| `is` | Icelandic         | 89.5% |
+| `id` | Indonesian        | 90.3% |
+| `ga` | Irish             | 92.8% |
+| `it` | Italian           | 93.0% |
+| `ja` | Japanese          | 86.2% |
+| `jv` | Javanese          | 91.1% |
+| `kn` | Kannada           | 79.2% |
+| `kk` | Kazakh            | 90.3% |
+| `km` | Khmer             | 75.0% |
+| `ko` | Korean            | 86.7% |
+| `ku` | Kurdish           | 93.9% |
+| `ky` | Kyrgyz            | 92.3% |
+| `lo` | Lao               | 72.6% |
+| `la` | Latin             | 86.1% |
+| `lv` | Latvian           | 90.3% |
+| `lt` | Lithuanian        | 85.4% |
+| `mk` | Macedonian        | 95.3% |
+| `mg` | Malagasy          | 95.0% |
+| `ms` | Malay             | 91.2% |
+| `ml` | Malayalam         | 84.7% |
+| `mr` | Marathi           | 85.9% |
+| `mn` | Mongolian         | 94.3% |
+| `ne` | Nepali            | 84.9% |
+| `no` | Norwegian         | 93.6% |
+| `or` | Oriya             | 60.0% |
+| `ps` | Pashto            | 72.0% |
+| `fa` | Persian           | 82.3% |
+| `pl` | Polish            | 91.4% |
+| `pt` | Portuguese        | 86.1% |
+| `pa` | Punjabi           | 76.5% |
+| `ro` | Romanian          | 86.9% |
+| `ru` | Russian           | 88.8% |
+| `sa` | Sanskrit          | 78.8% |
+| `gd` | Scottish Gaelic   | 92.5% |
+| `sr` | Serbian           | 94.1% |
+| `sd` | Sindhi            | 87.3% |
+| `si` | Sinhala           | 85.4% |
+| `sk` | Slovak            | 90.4% |
+| `sl` | Slovenian         | 91.4% |
+| `so` | Somali            | 97.9% |
+| `es` | Spanish           | 90.7% |
+| `su` | Sundanese         | 92.6% |
+| `sw` | Swahili           | 93.5% |
+| `sv` | Swedish           | 91.4% |
+| `ta` | Tamil             | 89.9% |
+| `te` | Telugu            | 79.2% |
+| `th` | Thai              | 76.4% |
+| `tr` | Turkish           | 85.4% |
+| `uk` | Ukrainian         | 92.1% |
+| `ur` | Urdu              | 68.7% |
+| `ug` | Uyghur            | 70.2% |
+| `uz` | Uzbek             | 88.9% |
+| `vi` | Vietnamese        | 73.2% |
+| `cy` | Welsh             | 95.1% |
+| `fy` | Western Frisian   | 90.9% |
+| `xh` | Xhosa             | 90.3% |
+| `yi` | Yiddish           | 82.5% |
