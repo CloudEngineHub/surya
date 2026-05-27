@@ -5,7 +5,6 @@ import time
 from collections import defaultdict
 
 from surya.inference import SuryaInferenceManager
-from surya.layout import LayoutPredictor
 from surya.logging import configure_logging, get_logger
 from surya.recognition import RecognitionPredictor
 from surya.scripts.config import CLILoader
@@ -14,24 +13,19 @@ configure_logging()
 logger = get_logger()
 
 
-@click.command(help="OCR text — runs layout then per-block OCR.")
+@click.command(help="OCR text — full-page OCR (one VLM call per page).")
 @CLILoader.common_options
 def ocr_text_cli(input_path: str, **kwargs):
-    # Layout runs on the low-DPI render; recognition gets the high-DPI image
-    # so small glyphs are resolved. target_image_sizes makes layout return
-    # bboxes already in the high-DPI coord space.
+    # Full-page OCR is the default path: one VLM call per page returns layout
+    # + content together. Pages whose full-page output fails to parse fall
+    # back to layout + per-block OCR automatically (see RecognitionPredictor).
     loader = CLILoader(input_path, kwargs, highres=True)
 
     manager = SuryaInferenceManager()
-    layout_predictor = LayoutPredictor(manager)
     rec_predictor = RecognitionPredictor(manager)
 
     start = time.time()
-    layouts = layout_predictor(
-        loader.images,
-        target_image_sizes=[img.size for img in loader.highres_images],
-    )
-    page_results = rec_predictor(loader.highres_images, layouts)
+    page_results = rec_predictor(loader.highres_images, full_page=True)
 
     if loader.debug:
         logger.debug(f"OCR took {time.time() - start:.2f} seconds")

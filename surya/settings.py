@@ -78,12 +78,6 @@ class Settings(BaseSettings):
     SURYA_MAX_TOKENS_BLOCK_CEILING: int = 8192
     SURYA_MAX_TOKENS_FULL_PAGE: int = 12288
 
-    # When a layout request fails to produce parseable JSON, fall back to
-    # HIGH_ACCURACY_BBOX_PROMPT on the full OCR-DPI page. The HTML output
-    # carries both layout (data-bbox + data-label) and OCR content (inner
-    # HTML), so we skip per-block OCR for fallback pages.
-    SURYA_LAYOUT_FALLBACK_FULL_PAGE: bool = True
-
     BBOX_SCALE: int = 1000
 
     # vllm

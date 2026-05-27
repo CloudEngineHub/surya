@@ -8,6 +8,9 @@ Predictors take the manager via explicit injection at construction time.
 
 from __future__ import annotations
 
+import os
+import shutil
+import subprocess
 from typing import List, Optional
 
 from surya.inference.backends.base import Backend
@@ -18,17 +21,50 @@ from surya.settings import settings
 logger = get_logger()
 
 
-def _autodetect_backend() -> str:
-    if settings.SURYA_INFERENCE_BACKEND:
-        return settings.SURYA_INFERENCE_BACKEND
-    # cuda → vllm, mps/cpu → llamacpp
+def _has_nvidia_gpu() -> bool:
+    """True if an NVIDIA GPU is present on this host.
+
+    We deliberately do *not* rely solely on ``torch.cuda.is_available()``:
+    the installed torch wheel's CUDA build can be newer than the host driver
+    (PyPI's default wheel tracks the latest CUDA), in which case torch reports
+    no CUDA even on a perfectly good GPU box. That would silently route us to
+    the CPU llama.cpp backend on a machine that should be running vllm. So we
+    take torch's word when it *does* see CUDA, and otherwise fall back to
+    probing for the GPU directly via ``nvidia-smi``.
+    """
     try:
         import torch
 
         if torch.cuda.is_available():
-            return "vllm"
+            return True
     except Exception:
         pass
+
+    # Instant, load-independent check: the NVIDIA device node only exists when
+    # a GPU + driver are present. Preferred over nvidia-smi because nvidia-smi
+    # can block for several seconds on a GPU under heavy load, which would race
+    # a timeout and falsely report "no GPU".
+    if os.path.exists("/dev/nvidia0"):
+        return True
+
+    nvidia_smi = shutil.which("nvidia-smi")
+    if not nvidia_smi:
+        return False
+    try:
+        result = subprocess.run(
+            [nvidia_smi, "-L"], capture_output=True, text=True, timeout=15
+        )
+        return result.returncode == 0 and "GPU" in result.stdout
+    except Exception:
+        return False
+
+
+def _autodetect_backend() -> str:
+    if settings.SURYA_INFERENCE_BACKEND:
+        return settings.SURYA_INFERENCE_BACKEND
+    # NVIDIA GPU → vllm, mps/cpu → llamacpp
+    if _has_nvidia_gpu():
+        return "vllm"
     return "llamacpp"
 
 

@@ -20,15 +20,15 @@
 
 # Surya
 
-Surya is an OCR toolkit powered by a 650M param model that does:
+Surya is a 650M param OCR model with these features:
 
-- Full-page OCR, scoring 83.3% on [olmOCR-bench](https://huggingface.co/datasets/allenai/olmOCR-bench) (top under 3B params)
-- Multilingual OCR - scores 87.2% on an internal benchmark set of 91 languages (more [here](#multilingual))
-- Line-level text detection
+- Accuracy - scores 83.3% on [olmOCR-bench](https://huggingface.co/datasets/allenai/olmOCR-bench) (top under 3B params)
+- Speed - throughput of 5 pages/s on an RTX 5090
+- Multilingual - scores 87.2% on an internal benchmark set of 91 languages (more [here](#multilingual))
 - Layout analysis (table, image, header, etc.) with reading order
 - Table recognition (rows + columns)
 
-It works on a range of documents (see [usage](#usage) and [benchmarks](#benchmarks)).
+We also ship smaller models for line-level text detection and ocr error detection.  It works on a range of documents (see [usage](#usage) and [benchmarks](#benchmarks)).
 
 ## Try Datalab's Managed Platform
 
@@ -76,6 +76,17 @@ Install with:
 pip install surya-ocr
 ```
 
+## Inference backend prerequisites
+
+Surya auto-spawns the server on first use, and you need `vllm` (NVIDIA GPU) or `llama.cpp` (CPU / Apple Silicon):
+
+- **NVIDIA GPU:** [Docker](https://docs.docker.com/get-docker/) plus the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
+- **CPU / Apple Silicon:** the `llama-server` binary from llama.cpp:
+  ```shell
+  brew install llama.cpp     # macOS
+  # or grab a release from https://github.com/ggml-org/llama.cpp/releases
+  ```
+
 ## Upgrading from Surya v1
 
 If you have v1 code, you can migrate to this:
@@ -96,10 +107,7 @@ What's different:
 
 # Usage
 
-Surya 2 runs layout, OCR, and table recognition through a single VLM served
-by `vllm` (GPU) or `llama.cpp` (CPU / Apple Silicon). The inference manager
-will spawn one for you on first use; you can also point it at an existing
-server via `SURYA_INFERENCE_URL=http://host:port/v1`.
+Surya 2 runs layout, OCR, and table recognition through a single VLM.  The inference manager  will spawn one for you on first use; you can also point it at an existing server via `SURYA_INFERENCE_URL=http://host:port/v1`.
 
 - Inspect the settings in `surya/settings.py`.  You can override any setting via env var (e.g. `SURYA_INFERENCE_BACKEND=vllm`).
 - Text detection and OCR errors are separate models.
@@ -156,12 +164,13 @@ from surya.recognition import RecognitionPredictor
 manager = SuryaInferenceManager()
 recognition_predictor = RecognitionPredictor(manager)
 
-# Default: full-page OCR. One VLM call per page; returns layout + content as
-# HTML <div data-bbox=... data-label=...> blocks.
+# Default: full-page OCR. One VLM call per page. Returns one PageOCRResult per
+# image: `.blocks` (each with label, html, polygon, bbox, confidence, ...) and
+# `.image_bbox` — the same schema as block mode.
 predictions = recognition_predictor([Image.open(IMAGE_PATH)])
 
-# Block mode: pre-run layout, then per-block OCR. Auto-selected when
-# `layout_results` is passed.
+# Block mode: pre-run layout, then per-block OCR. Same return schema as above.
+# Auto-selected when `layout_results` is passed.
 from surya.layout import LayoutPredictor
 layout = LayoutPredictor(manager)
 layouts = layout([Image.open(IMAGE_PATH)])
