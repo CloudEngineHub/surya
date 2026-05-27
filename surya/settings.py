@@ -89,6 +89,9 @@ class Settings(BaseSettings):
     VLLM_API_KEY: str = "EMPTY"
     VLLM_GPUS: str = "0"
     VLLM_GPU_TYPE: str = "4090"
+    # bfloat16 needs an Ampere+ GPU (compute capability >= 8.0). On older cards
+    # (e.g. T4 / Turing) vllm refuses to start with bf16 — set float16 there.
+    VLLM_DTYPE: str = "bfloat16"
     VLLM_MAX_MODEL_LEN: int = 18000
     VLLM_GPU_MEMORY_UTILIZATION: float = 0.85
     VLLM_ENABLE_MTP: bool = True

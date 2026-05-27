@@ -138,6 +138,27 @@ def _stop_process(pid: int, name: str) -> None:
         logger.warning(f"Failed to stop {name} (pid {pid}): {e}")
 
 
+def _capture_server_logs(handle: "SpawnHandle", tail: int = 100) -> str:
+    """Best-effort tail of a server's logs, for surfacing startup failures."""
+    try:
+        if handle.cleanup_kind == "docker":
+            r = subprocess.run(
+                ["docker", "logs", "--tail", str(tail), handle.cleanup_id],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            return (r.stdout or "") + (r.stderr or "") or "(no docker logs)"
+        # llama.cpp process backend logs to this file (see llamacpp.py)
+        log_path = Path("~/.cache/datalab/surya/llamacpp_server.log").expanduser()
+        if log_path.exists():
+            lines = log_path.read_text(errors="replace").splitlines()
+            return "\n".join(lines[-tail:]) or "(empty log)"
+    except Exception as e:
+        return f"(could not capture logs: {e})"
+    return "(no logs available)"
+
+
 def _stop_docker_container(name: str) -> None:
     try:
         subprocess.run(
@@ -290,10 +311,15 @@ def attach_or_spawn(
         # 6. Wait for health
         health_url = health_url_for(port)
         if not wait_for_health(health_url, total_timeout=startup_timeout):
+            # Grab the server's own logs *before* cleanup tears the (--rm)
+            # container down, otherwise the actual failure reason is lost and
+            # all the caller sees is this timeout.
+            logs = _capture_server_logs(spawn_handle)
             _cleanup()
             raise SpawnError(
                 f"{backend} server failed to become healthy at {health_url} "
-                f"within {startup_timeout}s"
+                f"within {startup_timeout}s.\n"
+                f"--- last {backend} server logs ---\n{logs}"
             )
 
         # 7. Verify model name

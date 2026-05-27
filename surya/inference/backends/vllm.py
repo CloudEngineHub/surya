@@ -140,7 +140,7 @@ class VllmBackend(Backend):
                 "--max-num-seqs",
                 str(max_num_seqs),
                 "--dtype",
-                "bfloat16",
+                settings.VLLM_DTYPE,
                 "--max-model-len",
                 str(settings.VLLM_MAX_MODEL_LEN),
                 "--max-num-batched-tokens",

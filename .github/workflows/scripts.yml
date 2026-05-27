@@ -5,6 +5,12 @@ on: [push]
 jobs:
   build:
     runs-on: t4_gpu
+    env:
+      # T4 (Turing, compute 7.5) can't run bf16 in vllm; size vllm for the 16GB
+      # card and give the cold start (image pull + model download) headroom.
+      VLLM_DTYPE: float16
+      VLLM_GPU_TYPE: t4
+      SURYA_INFERENCE_STARTUP_TIMEOUT: "1200"
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
@@ -22,11 +28,13 @@ jobs:
           unzip -o benchmark_data.zip
       - name: Test detection
         run: uv run surya_detect benchmark_data/pdfs/switch_trans.pdf --page_range 0
+      # Spawn the vllm server once and reuse it across the OCR/layout/table
+      # steps (--keep_server) instead of paying a cold start three times.
       - name: Test OCR
-        run: uv run surya_ocr benchmark_data/pdfs/switch_trans.pdf --page_range 0
+        run: uv run surya_ocr benchmark_data/pdfs/switch_trans.pdf --page_range 0 --keep_server
       - name: Test layout
-        run: uv run surya_layout benchmark_data/pdfs/switch_trans.pdf --page_range 0
+        run: uv run surya_layout benchmark_data/pdfs/switch_trans.pdf --page_range 0 --keep_server
       - name: Test table
-        run: uv run surya_table benchmark_data/pdfs/switch_trans.pdf --page_range 0
+        run: uv run surya_table benchmark_data/pdfs/switch_trans.pdf --page_range 0 --keep_server
       - name: Test detection folder
         run: uv run surya_detect benchmark_data/pdfs --page_range 0

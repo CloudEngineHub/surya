@@ -9,6 +9,12 @@ jobs:
       matrix:
         os: [t4_gpu, ubuntu-latest, windows-latest]
       fail-fast: false
+    env:
+      # T4 can't run bf16 in vllm; size for the 16GB card. (No-op on the
+      # CPU runners, which skip the VLM-backed tests.)
+      VLLM_DTYPE: float16
+      VLLM_GPU_TYPE: t4
+      SURYA_INFERENCE_STARTUP_TIMEOUT: "1200"
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
