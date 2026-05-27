@@ -37,8 +37,8 @@ class Settings(BaseSettings):
         return "cpu"
 
     # ---- Surya2 inference (VLM-backed: vllm | llamacpp) ---------------------
-    SURYA_MODEL_CHECKPOINT: str = "datalab-to/surya-2"
-    SURYA_GGUF_REPO: str = "datalab-to/surya-2-gguf"
+    SURYA_MODEL_CHECKPOINT: str = "datalab-to/surya-ocr-2"
+    SURYA_GGUF_REPO: str = "datalab-to/surya-ocr-2-gguf"
     SURYA_GGUF_MODEL_FILE: str = "surya-2.gguf"
     SURYA_GGUF_MMPROJ_FILE: str = "surya-2-mmproj.gguf"
     # If set, used directly instead of HF download (handy for local-conversion testing)

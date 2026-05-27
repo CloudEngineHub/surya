@@ -14,7 +14,7 @@ working dir under --out-dir.
 
 Usage:
     python -m surya.scripts.build_gguf \\
-        --checkpoint datalab-to/surya-2.1.0 \\
+        --checkpoint datalab-to/surya-2.1.6 \\
         --out-dir ./gguf-build
 """
 
