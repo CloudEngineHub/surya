@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     SURYA_INFERENCE_BACKEND: Optional[str] = None  # "vllm" | "llamacpp" | None (auto)
     SURYA_INFERENCE_URL: Optional[str] = None  # external server, skip spawn
     SURYA_INFERENCE_AUTOSTART: bool = True
+    # Leave an auto-spawned server running after the process exits so later
+    # commands attach to it instead of re-spawning (avoids repeated startup /
+    # model-load cost). Stop it manually when done — see `surya/inference`.
+    SURYA_INFERENCE_KEEP_ALIVE: bool = False
     SURYA_INFERENCE_HOST: str = "127.0.0.1"
     SURYA_INFERENCE_PORT: Optional[int] = None  # None = pick a free port
     SURYA_INFERENCE_PARALLEL: int = 8

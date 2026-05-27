@@ -265,7 +265,10 @@ def attach_or_spawn(
             },
         )
 
-        # 5. Register atexit cleanup (only spawner)
+        # 5. Register atexit cleanup (only spawner). Skipped when keep-alive is
+        # set so the server outlives this process and later commands attach to
+        # it via the sentinel. (_cleanup is still callable below on startup
+        # failure, where we always tear a half-started server down.)
         def _cleanup():
             try:
                 if spawn_handle.cleanup_kind == "docker":
@@ -276,7 +279,13 @@ def attach_or_spawn(
             finally:
                 _delete_sentinel(backend)
 
-        atexit.register(_cleanup)
+        if settings.SURYA_INFERENCE_KEEP_ALIVE:
+            logger.info(
+                f"keep-alive: {backend} server on port {port} will stay up "
+                f"after exit (cleanup_id={spawn_handle.cleanup_id!r})"
+            )
+        else:
+            atexit.register(_cleanup)
 
         # 6. Wait for health
         health_url = health_url_for(port)

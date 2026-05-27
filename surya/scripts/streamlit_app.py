@@ -4,12 +4,14 @@ inference manager. Detection + OCR-error stay in their own torch paths."""
 from __future__ import annotations
 
 import io
+import re
 import tempfile
 import time
 from typing import List
 
 import pypdfium2
 import streamlit as st
+import streamlit.components.v1 as components
 from PIL import Image, ImageDraw
 
 from surya.debug.draw import draw_polys_on_image, draw_bboxes_on_image
@@ -22,6 +24,61 @@ from surya.recognition.schema import PageOCRResult
 from surya.settings import settings
 from surya.table_rec import TableRecPredictor
 from surya.table_rec.schema import TableResult
+
+
+# KaTeX-enabled HTML wrapper. The OCR HTML wraps math in <math>...</math>
+# (KaTeX-compatible LaTeX inside), which a browser would otherwise show as
+# raw text. We convert those tags to \( \) / \[ \] delimiters and let KaTeX
+# auto-render typeset them inside an iframe component.
+_KATEX_HEAD = r"""<!doctype html><html><head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<style>
+/* White "paper" card so the text stays readable in both light and dark
+   Streamlit themes (the iframe is otherwise transparent and our text is dark). */
+html,body{background:#ffffff;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:15px;line-height:1.55;color:#111111;margin:0;padding:14px;}
+table{border-collapse:collapse;margin:6px 0;} td,th{border:1px solid #bbb;padding:3px 6px;color:#111111;}
+[data-label="SectionHeader"],[data-label="PageHeader"]{font-weight:600;}
+</style></head><body>
+"""
+
+_KATEX_TAIL = r"""
+<script>
+renderMathInElement(document.body, {
+  delimiters: [
+    {left: "\\[", right: "\\]", display: true},
+    {left: "\\(", right: "\\)", display: false}
+  ],
+  throwOnError: false
+});
+</script></body></html>
+"""
+
+_MATH_RE = re.compile(r"<math\b([^>]*)>(.*?)</math>", re.DOTALL | re.IGNORECASE)
+
+
+def _math_to_katex(html_str: str) -> str:
+    """Rewrite <math>...</math> tags into KaTeX \\( \\) / \\[ \\] delimiters."""
+
+    def repl(m: "re.Match") -> str:
+        attrs, inner = m.group(1), m.group(2)
+        if re.search(r"""display\s*=\s*["']block["']""", attrs):
+            return "\\[" + inner + "\\]"
+        return "\\(" + inner + "\\)"
+
+    return _MATH_RE.sub(repl, html_str or "")
+
+
+def render_ocr_html(html_str: str, height: int = 400) -> None:
+    """Render OCR HTML with math typeset by KaTeX (iframe component)."""
+    components.html(
+        _KATEX_HEAD + _math_to_katex(html_str) + _KATEX_TAIL,
+        height=height,
+        scrolling=True,
+    )
 
 
 def _assemble_page_html(page: PageOCRResult) -> str:
@@ -334,7 +391,7 @@ if run_block_ocr:
         )
         full_html = _assemble_page_html(page)
         with st.expander("Full page HTML (rendered)", expanded=False):
-            st.markdown(full_html, unsafe_allow_html=True)
+            render_ocr_html(full_html, height=600)
         with st.expander("Full page HTML (source)", expanded=False):
             st.code(full_html, language="html")
         for blk in page.blocks:
@@ -366,6 +423,7 @@ if run_block_ocr:
                 elif blk.error:
                     st.error("Block OCR errored")
                 else:
+                    render_ocr_html(blk.html, height=160)
                     st.code(blk.html, language="html")
 
 
@@ -382,7 +440,7 @@ if run_full_page_ocr:
         )
         full_html = _assemble_page_html(page)
         with st.expander("Full page HTML (rendered)", expanded=False):
-            st.markdown(full_html, unsafe_allow_html=True)
+            render_ocr_html(full_html, height=600)
         with st.expander("Full page HTML (source)", expanded=False):
             st.code(full_html, language="html")
         for blk in page.blocks:
@@ -394,7 +452,7 @@ if run_full_page_ocr:
                 elif blk.error:
                     st.error("Block OCR errored")
                 else:
-                    st.markdown(blk.html, unsafe_allow_html=True)
+                    render_ocr_html(blk.html, height=160)
                     st.code(blk.html, language="html")
 
 
@@ -412,7 +470,7 @@ if run_table_rec:
         for pred in preds:
             if pred.mode == "full" and pred.html:
                 with st.expander("Table HTML"):
-                    st.markdown(pred.html, unsafe_allow_html=True)
+                    render_ocr_html(pred.html, height=400)
                     st.code(pred.html, language="html")
             else:
                 st.json(pred.model_dump(), expanded=False)

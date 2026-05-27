@@ -37,6 +37,7 @@ surya_ocr = "surya.scripts.ocr_text:ocr_text_cli"
 surya_layout = "surya.scripts.detect_layout:detect_layout_cli"
 surya_gui = "surya.scripts.run_streamlit_app:streamlit_app_cli"
 surya_table = "surya.scripts.table_recognition:table_recognition_cli"
+surya_screenshot = "surya.scripts.screenshot_app:main"
 
 [dependency-groups]
 dev = [
@@ -48,6 +49,7 @@ dev = [
     "pytest>=8.3.4",
     "pdftext>=0.5.1",
     "tabulate>=0.9.0",
+    "flask>=3.0.0",
 ]
 
 [build-system]
