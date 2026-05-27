@@ -107,10 +107,27 @@ What's different:
 
 # Usage
 
-Surya 2 runs layout, OCR, and table recognition through a single VLM.  The inference manager  will spawn one for you on first use; you can also point it at an existing server via `SURYA_INFERENCE_URL=http://host:port/v1`.
+Surya 2 runs layout, OCR, and table recognition through a single VLM.  The inference manager will spawn one for you on first use; you can also point it at an existing server via `SURYA_INFERENCE_URL=http://host:port/v1`.
 
 - Inspect the settings in `surya/settings.py`.  You can override any setting via env var (e.g. `SURYA_INFERENCE_BACKEND=vllm`).
 - Text detection and OCR errors are separate models.
+
+### Server lifecycle (`--keep_server`)
+
+By default each command spawns the VLM server on startup and shuts it down on
+exit — so running several commands in a row pays the startup (and, on GPU, the
+model-load) cost every time. Pass `--keep_server` to leave the server running
+so later commands attach to it instead of re-spawning:
+
+```shell
+surya_ocr    DATA_PATH --keep_server   # spawns the server and leaves it up
+surya_layout DATA_PATH                 # attaches to the running server
+surya_table  DATA_PATH                 # ...and so on, no re-spawn
+```
+
+`--keep_server` works on every command. Stop the server when you're done
+(`docker stop` the `surya-vllm-*` container, or kill the `llama-server`
+process), or set `SURYA_INFERENCE_KEEP_ALIVE=1` to make keep-alive the default.
 
 ## Interactive App
 
@@ -133,6 +150,7 @@ surya_ocr DATA_PATH
 - `--images` will save images of the pages and detected blocks (optional)
 - `--output_dir` specifies the directory to save results to instead of the default
 - `--page_range` specifies the page range to process in the PDF, specified as a single number, a comma separated list, a range, or comma separated ranges - example: `0,5-10,20`.
+- `--keep_server` leaves the inference server running after the command exits so later commands reuse it (see [Server lifecycle](#server-lifecycle---keep_server)).  Available on every command.
 
 The `results.json` file contains a dict keyed by input filename (no extension). Each value is a list of page dicts. Each page dict contains:
 
@@ -330,6 +348,7 @@ export SURYA_INFERENCE_URL=http://localhost:8000/v1
 | `SURYA_INFERENCE_BACKEND`         | auto (vllm if NVIDIA, else llamacpp) | `vllm` \| `llamacpp` \| unset (auto)                |
 | `SURYA_INFERENCE_URL`             | (auto-spawn)                      | Attach to a running OpenAI-compatible server          |
 | `SURYA_INFERENCE_PARALLEL`        | 8                                 | Client-side concurrency to the backend                |
+| `SURYA_INFERENCE_KEEP_ALIVE`      | false                             | Leave the spawned server up after exit (cf. `--keep_server`) |
 | `SURYA_GUIDED_LAYOUT`             | true                              | JSON-schema-constrained layout decode                 |
 
 # Limitations
@@ -353,7 +372,7 @@ If you want to develop surya, you can install it manually with [uv](https://docs
 git clone https://github.com/datalab-to/surya.git
 cd surya
 uv sync --group dev      # installs runtime + dev deps
-uv run surya_ocr ...     # or `uv shell` to enter the venv
+uv run surya_ocr ...     # or `source .venv/bin/activate` to enter the venv
 ```
 
 # Benchmarks
