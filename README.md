@@ -1,3 +1,6 @@
+<p align="center">
+  <img src="static/datalab-logo.png" alt="Datalab Logo" width="150"/>
+</p>
 <h1 align="center">Datalab</h1>
 <p align="center">
   <strong>State of the Art models for Document Intelligence</strong>
@@ -32,8 +35,6 @@ It works on a range of documents (see [usage](#usage) and [benchmarks](#benchmar
 Our managed platform runs both Surya, and variants of our highest accuracy model, [Chandra](https://github.com/datalab-to/chandra).
 
 Get started with **$5 in free credits** — [sign up](https://www.datalab.to/?utm_source=gh-surya) (takes under 30 seconds) or try our free [public playground](https://www.datalab.to/playground?utm_source=gh-surya).
-
-Commercial self-hosting of the model weights requires a license — see [Commercial usage](#commercial-usage). For on-prem licensing, [contact us](https://www.datalab.to/contact?utm_source=gh-surya-onprem).  If you have high volume workloads, we offer a batch processing service that can process 1B+ pages per week.
 
 ## Model Information
 
@@ -141,7 +142,9 @@ The `results.json` file contains a dict keyed by input filename (no extension). 
 
 **Performance tips**
 
-Throughput is governed by the inference backend, not a `RECOGNITION_BATCH_SIZE` env var. With `vllm`, raise `--max-num-seqs` / `--max-num-batched-tokens` (or `SURYA_INFERENCE_PARALLEL` on the client side) to keep more pages in flight. With `llama.cpp`, set `SURYA_INFERENCE_PARALLEL` to match `--parallel` on `llama-server`.
+- Throughput is governed by the inference backend.  With `vllm`, raise `--max-num-seqs` / `--max-num-batched-tokens` (or `SURYA_INFERENCE_PARALLEL` on the client side) to keep more pages in flight. With `llama.cpp`, set `SURYA_INFERENCE_PARALLEL` to match `--parallel` on `llama-server`.
+- DPI can also impact throughput significantly - you can adjust the DPI settings to make the right throughput/accuracy tradeoff for your usecase.  Try going from 192 to 96 for improved throughput.
+- MTP can also impact latency/throughput - you can adjust the vllm mtp config in settings.
 
 ### From python
 
