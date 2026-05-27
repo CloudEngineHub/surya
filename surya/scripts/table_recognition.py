@@ -4,20 +4,19 @@ import copy
 import json
 from collections import defaultdict
 
+from surya.common.util import expand_bbox
+from surya.debug.draw import draw_bboxes_on_image
+from surya.inference import SuryaInferenceManager
+from surya.layout import LayoutPredictor
 from surya.logging import configure_logging, get_logger
 from surya.scripts.config import CLILoader
-from surya.foundation import FoundationPredictor
-from surya.layout import LayoutPredictor
 from surya.table_rec import TableRecPredictor
-from surya.debug.draw import draw_bboxes_on_image
-from surya.common.util import rescale_bbox, expand_bbox
-from surya.settings import settings
 
 configure_logging()
 logger = get_logger()
 
 
-@click.command(help="Detect layout of an input file or folder (PDFs or image).")
+@click.command(help="Run table recognition on an input file or folder.")
 @CLILoader.common_options
 @click.option(
     "--skip_table_detection",
@@ -25,59 +24,59 @@ logger = get_logger()
     help="Tables are already cropped, so don't re-detect tables.",
     default=False,
 )
-def table_recognition_cli(input_path: str, skip_table_detection: bool, **kwargs):
+@click.option(
+    "--mode",
+    type=click.Choice(["simple", "full"]),
+    default="simple",
+    help="simple: rows+cols only (geometric cells). full: full HTML (BLOCK_PROMPT).",
+)
+def table_recognition_cli(
+    input_path: str, skip_table_detection: bool, mode: str, **kwargs
+):
+    # Layout runs on the low-DPI render; table crops come from the high-DPI
+    # image so the table_rec model sees readable cell content.
     loader = CLILoader(input_path, kwargs, highres=True)
 
-    foundation_predictor = FoundationPredictor(checkpoint=settings.LAYOUT_MODEL_CHECKPOINT)
-    layout_predictor = LayoutPredictor(foundation_predictor)
-    table_rec_predictor = TableRecPredictor()
+    manager = SuryaInferenceManager()
+    layout_predictor = LayoutPredictor(manager)
+    table_rec_predictor = TableRecPredictor(manager)
 
     pnums = []
     prev_name = None
-    for i, name in enumerate(loader.names):
+    for name in loader.names:
         if prev_name is None or prev_name != name:
             pnums.append(0)
         else:
             pnums.append(pnums[-1] + 1)
-
         prev_name = name
-
-    layout_predictions = layout_predictor(loader.images)
 
     table_imgs = []
     table_counts = []
+    table_counts_per_img = []
 
-    for layout_pred, img, highres_img in zip(
-        layout_predictions, loader.images, loader.highres_images
-    ):
-        # The table may already be cropped
-        if skip_table_detection:
-            table_imgs.append(highres_img)
+    if skip_table_detection:
+        for img in loader.highres_images:
+            table_imgs.append(img)
             table_counts.append(1)
-        else:
-            # The bbox for the entire table
-            bbox = [
-                line.bbox
+            table_counts_per_img.append(0)
+    else:
+        layout_predictions = layout_predictor(
+            loader.images,
+            target_image_sizes=[img.size for img in loader.highres_images],
+        )
+        for layout_pred, img in zip(layout_predictions, loader.highres_images):
+            tables_on_page = [
+                line
                 for line in layout_pred.bboxes
-                if line.label in ["Table", "TableOfContents"]
+                if line.label in ("Table", "TableOfContents")
             ]
-            # Number of tables per page
-            table_counts.append(len(bbox))
+            table_counts.append(len(tables_on_page))
+            for line in tables_on_page:
+                bbox = expand_bbox(line.bbox)
+                table_imgs.append(img.crop(bbox))
+                table_counts_per_img.append(line.count)
 
-            if len(bbox) == 0:
-                continue
-
-            page_table_imgs = []
-            highres_bbox = []
-            for bb in bbox:
-                highres_bb = rescale_bbox(bb, img.size, highres_img.size)
-                highres_bb = expand_bbox(highres_bb)
-                page_table_imgs.append(highres_img.crop(highres_bb))
-                highres_bbox.append(highres_bb)
-
-            table_imgs.extend(page_table_imgs)
-
-    table_preds = table_rec_predictor(table_imgs)
+    table_preds = table_rec_predictor(table_imgs, mode=mode)
 
     img_idx = 0
     prev_count = 0
@@ -98,7 +97,7 @@ def table_recognition_cli(input_path: str, skip_table_detection: bool, **kwargs)
         out_pred["table_idx"] = table_idx
         table_predictions[orig_name].append(out_pred)
 
-        if loader.save_images:
+        if loader.save_images and pred.rows:
             rows = [line.bbox for line in pred.rows]
             cols = [line.bbox for line in pred.cols]
             row_labels = [f"Row {line.row_id}" for line in pred.rows]
@@ -114,7 +113,8 @@ def table_recognition_cli(input_path: str, skip_table_detection: bool, **kwargs)
             )
             rc_image.save(
                 os.path.join(
-                    loader.result_path, f"{name}_page{pnum + 1}_table{table_idx}_rc.png"
+                    loader.result_path,
+                    f"{orig_name}_page{pnum + 1}_table{table_idx}_rc.png",
                 )
             )
 
@@ -123,7 +123,7 @@ def table_recognition_cli(input_path: str, skip_table_detection: bool, **kwargs)
             cell_image.save(
                 os.path.join(
                     loader.result_path,
-                    f"{name}_page{pnum + 1}_table{table_idx}_cells.png",
+                    f"{orig_name}_page{pnum + 1}_table{table_idx}_cells.png",
                 )
             )
 

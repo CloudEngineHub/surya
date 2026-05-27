@@ -4,12 +4,11 @@ import copy
 import json
 from collections import defaultdict
 
-from surya.foundation import FoundationPredictor
+from surya.inference import SuryaInferenceManager
 from surya.layout import LayoutPredictor
 from surya.debug.draw import draw_polys_on_image
 from surya.logging import configure_logging, get_logger
 from surya.scripts.config import CLILoader
-from surya.settings import settings
 import os
 
 configure_logging()
@@ -21,8 +20,8 @@ logger = get_logger()
 def detect_layout_cli(input_path: str, **kwargs):
     loader = CLILoader(input_path, kwargs)
 
-    foundation_predictor = FoundationPredictor(checkpoint=settings.LAYOUT_MODEL_CHECKPOINT)
-    layout_predictor = LayoutPredictor(foundation_predictor)
+    manager = SuryaInferenceManager()
+    layout_predictor = LayoutPredictor(manager)
 
     start = time.time()
     layout_predictions = layout_predictor(loader.images)

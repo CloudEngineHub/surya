@@ -1,40 +1,19 @@
-import math
-import numpy as np
-from typing import Optional, List
+from typing import List
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 
 from surya.common.polygon import PolygonBox
 
 
-class BaseChar(PolygonBox):
-    text: str
-    confidence: Optional[float] = 0
-
-    @field_validator("confidence", mode="before")
-    @classmethod
-    def validate_confidence(cls, v: float) -> float:
-        if v is None:
-            return 0
-        elif math.isnan(v) or np.isnan(v):
-            return 0
-        return v
+class BlockOCRResult(PolygonBox):
+    label: str  # canonicalized layout label (Picture, Text, ...)
+    raw_label: str = ""  # original model label
+    reading_order: int  # 0-indexed position in layout output
+    html: str = ""  # block HTML (BLOCK_PROMPT output, "" if skipped)
+    skipped: bool = False  # True if label was in SKIP_OCR_LABELS
+    error: bool = False
 
 
-class TextChar(BaseChar):
-    bbox_valid: bool = True  # This is false when the given bbox is not valid
-
-
-class TextWord(BaseChar):
-    bbox_valid: bool = True
-
-
-class TextLine(BaseChar):
-    chars: List[TextChar]  # Individual characters in the line
-    original_text_good: bool = False
-    words: List[TextWord] | None = None
-
-
-class OCRResult(BaseModel):
-    text_lines: List[TextLine]
+class PageOCRResult(BaseModel):
+    blocks: List[BlockOCRResult]
     image_bbox: List[float]

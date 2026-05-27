@@ -6,7 +6,7 @@
   <strong>State of the Art models for Document Intelligence</strong>
 </p>
 <p align="center">
-  <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/Code%20License-GPL--3.0-green.svg" alt="Code License"></a>
+  <a href="https://www.apache.org/licenses/LICENSE-2.0"><img src="https://img.shields.io/badge/Code%20License-Apache--2.0-green.svg" alt="Code License"></a>
   <a href="https://www.datalab.to/pricing"><img src="https://img.shields.io/badge/Model%20License-OpenRAIL--M-blue.svg" alt="Model License"></a>
   <a href="https://discord.gg/KuZwXNGnfH"><img src="https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
 </p>
@@ -20,71 +20,55 @@
 
 # Surya
 
-Surya is a document OCR toolkit that does:
+Surya is a 650M param OCR model with these features:
 
-- OCR in 90+ languages that benchmarks favorably vs cloud services
-- Line-level text detection in any language
-- Layout analysis (table, image, header, etc detection)
-- Reading order detection
-- Table recognition (detecting rows/columns)
-- LaTeX OCR
+- Accuracy - scores 83.3% on [olmOCR-bench](https://huggingface.co/datasets/allenai/olmOCR-bench) (top under 3B params)
+- Speed - throughput of 5 pages/s on an RTX 5090
+- Multilingual - scores 87.2% on an internal benchmark set of 91 languages (more [here](#multilingual))
+- Layout analysis (table, image, header, etc.) with reading order
+- Table recognition (rows + columns)
 
-It works on a range of documents (see [usage](#usage) and [benchmarks](#benchmarks) for more details).
+We also ship smaller models for line-level text detection and ocr error detection.  It works on a range of documents (see [usage](#usage) and [benchmarks](#benchmarks)).
 
 ## Try Datalab's Managed Platform
 
-Our managed platform runs our latest open source model, [Chandra](https://github.com/datalab-to/chandra) — higher accuracy than Surya, with zero data retention by default, SOC 2 Type 2, and custom BAAs.
+Our managed platform runs both Surya, and variants of our highest accuracy model, [Chandra](https://github.com/datalab-to/chandra).
 
-If you have high volume workloads, we offer a batch processing service that has processed 200M+ pages per week — we manage the infrastructure so your workloads finish on time.
+Get started with **$5 in free credits** — [sign up](https://www.datalab.to/?utm_source=gh-surya) (takes under 30 seconds) or try our free [public playground](https://www.datalab.to/playground?utm_source=gh-surya).
 
-Get started with **$5 in free credits** — [sign up](https://www.datalab.to/?utm_source=gh-surya) (takes under 30 seconds) or try our [public playground](https://www.datalab.to/playground?utm_source=gh-surya).
+## Model Information
 
-Commercial self-hosting requires a license — see [Commercial usage](#commercial-usage). For on-prem licensing, [contact us](https://www.datalab.to/contact?utm_source=gh-surya-onprem).
+<img src="static/images/olmocr_size_chart.png" width="700"/>
 
 
 |                            Detection                             |                                   OCR                                   |
 |:----------------------------------------------------------------:|:-----------------------------------------------------------------------:|
-|  <img src="static/images/excerpt.png" width="500px"/>  |  <img src="static/images/excerpt_text.png" width="500px"/> |
+|  <img src="static/images/excerpt.png" width="280"/>  |  <img src="static/images/excerpt_text.png" width="280"/> |
 
-|                               Layout                               |                               Reading Order                                |
-|:------------------------------------------------------------------:|:--------------------------------------------------------------------------:|
-| <img src="static/images/excerpt_layout.png" width="500px"/> | <img src="static/images/excerpt_reading.jpg" width="500px"/> |
-
-|                       Table Recognition                       |                       LaTeX OCR                        |
-|:-------------------------------------------------------------:|:------------------------------------------------------:|
-| <img src="static/images/scanned_tablerec.png" width="500px"/> | <img src="static/images/latex_ocr.png" width="500px"/> |
+|                               Layout                               |                       Table Recognition                       |
+|:------------------------------------------------------------------:|:-------------------------------------------------------------:|
+| <img src="static/images/excerpt_layout.png" width="280"/> | <img src="static/images/scanned_tablerec.png" width="280"/> |
 
 
 Surya is named for the [Hindu sun god](https://en.wikipedia.org/wiki/Surya), who has universal vision.
 
-## Community
-
-[Discord](https://discord.gg//KuZwXNGnfH) is where we discuss future development.
-
 ## Examples
 
-| Name             |              Detection              |                                      OCR |                                     Layout |                                       Order |                                    Table Rec |
-|------------------|:-----------------------------------:|-----------------------------------------:|-------------------------------------------:|--------------------------------------------:|---------------------------------------------:|
-| Japanese         | [Image](static/images/japanese.jpg) | [Image](static/images/japanese_text.jpg) | [Image](static/images/japanese_layout.jpg) | [Image](static/images/japanese_reading.jpg) | [Image](static/images/japanese_tablerec.png) |
-| Chinese          | [Image](static/images/chinese.jpg)  |  [Image](static/images/chinese_text.jpg) |  [Image](static/images/chinese_layout.jpg) |  [Image](static/images/chinese_reading.jpg) |                                              |
-| Hindi            |  [Image](static/images/hindi.jpg)   |    [Image](static/images/hindi_text.jpg) |    [Image](static/images/hindi_layout.jpg) |    [Image](static/images/hindi_reading.jpg) |                                              |
-| Arabic           |  [Image](static/images/arabic.jpg)  |   [Image](static/images/arabic_text.jpg) |   [Image](static/images/arabic_layout.jpg) |   [Image](static/images/arabic_reading.jpg) |                                              |
-| Chinese + Hindi  | [Image](static/images/chi_hind.jpg) | [Image](static/images/chi_hind_text.jpg) | [Image](static/images/chi_hind_layout.jpg) | [Image](static/images/chi_hind_reading.jpg) |                                              |
-| Presentation     |   [Image](static/images/pres.png)   |     [Image](static/images/pres_text.jpg) |     [Image](static/images/pres_layout.jpg) |     [Image](static/images/pres_reading.jpg) |     [Image](static/images/pres_tablerec.png) |
-| Scientific Paper |  [Image](static/images/paper.jpg)   |    [Image](static/images/paper_text.jpg) |    [Image](static/images/paper_layout.jpg) |    [Image](static/images/paper_reading.jpg) |    [Image](static/images/paper_tablerec.png) |
-| Scanned Document | [Image](static/images/scanned.png)  |  [Image](static/images/scanned_text.jpg) |  [Image](static/images/scanned_layout.jpg) |  [Image](static/images/scanned_reading.jpg) |  [Image](static/images/scanned_tablerec.png) |
-| New York Times   |   [Image](static/images/nyt.jpg)    |      [Image](static/images/nyt_text.jpg) |      [Image](static/images/nyt_layout.jpg) |        [Image](static/images/nyt_order.jpg) |                                              |
-| Scanned Form     |  [Image](static/images/funsd.png)   |    [Image](static/images/funsd_text.jpg) |    [Image](static/images/funsd_layout.jpg) |    [Image](static/images/funsd_reading.jpg) | [Image](static/images/scanned_tablerec2.png) |
-| Textbook         | [Image](static/images/textbook.jpg) | [Image](static/images/textbook_text.jpg) | [Image](static/images/textbook_layout.jpg) |   [Image](static/images/textbook_order.jpg) |                                              |
+Each row links to five annotated views of the same page: text-line detection, OCR, layout, reading order, and (when present) table recognition.
+
+| Name              |              Detection              |                                       OCR |                                       Layout |                                          Order |                                       Table Rec |
+|-------------------|:-----------------------------------:|------------------------------------------:|---------------------------------------------:|------------------------------------------------:|------------------------------------------------:|
+| Newspaper         | [Image](static/images/newspaper.png) | [Image](static/images/newspaper_text.png) | [Image](static/images/newspaper_layout.png) | [Image](static/images/newspaper_reading.png) |                                                  |
+| Textbook          | [Image](static/images/textbook.png)  | [Image](static/images/textbook_text.png)  | [Image](static/images/textbook_layout.png)  | [Image](static/images/textbook_reading.png)  |                                                  |
+| Tax Form          | [Image](static/images/form.png)      | [Image](static/images/form_text.png)      | [Image](static/images/form_layout.png)      | [Image](static/images/form_reading.png)      | [Image](static/images/form_tablerec.png)      |
+| Handwritten Notes | [Image](static/images/handwritten.png) | [Image](static/images/handwritten_text.png) | [Image](static/images/handwritten_layout.png) | [Image](static/images/handwritten_reading.png) | [Image](static/images/handwritten_tablerec.png) |
+| Corporate Doc     | [Image](static/images/corporate.png) | [Image](static/images/corporate_text.png) | [Image](static/images/corporate_layout.png) | [Image](static/images/corporate_reading.png) | [Image](static/images/corporate_tablerec.png) |
 
 # Commercial usage
 
-Our model weights use a modified AI Pubs Open Rail-M license (free for research, personal use, and startups under $2M funding/revenue) and our code is GPL. For broader commercial licensing or to remove GPL requirements, visit our pricing page [here](https://www.datalab.to/pricing?utm_source=gh-surya).
-
+The Surya code is licensed under Apache 2.0. The model weights use a modified AI Pubs Open Rail-M license (free for research, personal use, and startups under $5M funding/revenue). For broader commercial licensing of the model weights, visit our pricing page [here](https://www.datalab.to/pricing?utm_source=gh-surya).
 
 # Installation
-
-You'll need python 3.10+ and PyTorch. You may need to install the CPU version of torch first if you're not using a Mac or a GPU machine.  See [here](https://pytorch.org/get-started/locally/) for more details.
 
 Install with:
 
@@ -92,12 +76,58 @@ Install with:
 pip install surya-ocr
 ```
 
-Model weights will automatically download the first time you run surya.
+## Inference backend prerequisites
+
+Surya auto-spawns the server on first use, and you need `vllm` (NVIDIA GPU) or `llama.cpp` (CPU / Apple Silicon):
+
+- **NVIDIA GPU:** [Docker](https://docs.docker.com/get-docker/) plus the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
+- **CPU / Apple Silicon:** the `llama-server` binary from llama.cpp:
+  ```shell
+  brew install llama.cpp     # macOS
+  # or grab a release from https://github.com/ggml-org/llama.cpp/releases
+  ```
+
+## Upgrading from Surya v1
+
+If you have v1 code, you can migrate to this:
+
+```python
+# v2
+from surya.inference import SuryaInferenceManager
+from surya.recognition import RecognitionPredictor
+
+manager = SuryaInferenceManager()              # auto-spawns vllm or llama-server
+rec = RecognitionPredictor(manager)
+predictions = rec([image])
+```
+
+What's different:
+- `SuryaInferenceManager` replaces `FoundationPredictor`. Same manager instance is shared across `LayoutPredictor`, `RecognitionPredictor`, `TableRecPredictor`.
+- Output schemas changed: see the per-section JSON tables below. Highlights — `text_lines` → `blocks` (with `html`); layout dropped `top_k`, added `count`; table_rec dropped `is_header` / `colspan` / `rowspan` from cells.
 
 # Usage
 
-- Inspect the settings in `surya/settings.py`.  You can override any settings with environment variables.
-- Your torch device will be automatically detected, but you can override this.  For example, `TORCH_DEVICE=cuda`.
+Surya 2 runs layout, OCR, and table recognition through a single VLM.  The inference manager will spawn one for you on first use; you can also point it at an existing server via `SURYA_INFERENCE_URL=http://host:port/v1`.
+
+- Inspect the settings in `surya/settings.py`.  You can override any setting via env var (e.g. `SURYA_INFERENCE_BACKEND=vllm`).
+- Text detection and OCR errors are separate models.
+
+### Server lifecycle (`--keep_server`)
+
+By default each command spawns the VLM server on startup and shuts it down on
+exit — so running several commands in a row pays the startup (and, on GPU, the
+model-load) cost every time. Pass `--keep_server` to leave the server running
+so later commands attach to it instead of re-spawning:
+
+```shell
+surya_ocr    DATA_PATH --keep_server   # spawns the server and leaves it up
+surya_layout DATA_PATH                 # attaches to the running server
+surya_table  DATA_PATH                 # ...and so on, no re-spawn
+```
+
+`--keep_server` works on every command. Stop the server when you're done
+(`docker stop` the `surya-vllm-*` container, or kill the `llama-server`
+process), or set `SURYA_INFERENCE_KEEP_ALIVE=1` to make keep-alive the default.
 
 ## Interactive App
 
@@ -117,52 +147,52 @@ surya_ocr DATA_PATH
 ```
 
 - `DATA_PATH` can be an image, pdf, or folder of images/pdfs
-- `--task_name` will specify which task to use for predicting the lines.  `ocr_with_boxes` is the default, which will format text and give you bboxes.  If you get bad performance, try `ocr_without_boxes`, which will give you potentially better performance but no bboxes.  For blocks like equations and paragraphs, try `block_without_boxes`.
-- `--images` will save images of the pages and detected text lines (optional)
+- `--images` will save images of the pages and detected blocks (optional)
 - `--output_dir` specifies the directory to save results to instead of the default
 - `--page_range` specifies the page range to process in the PDF, specified as a single number, a comma separated list, a range, or comma separated ranges - example: `0,5-10,20`.
-- `--disable_math` - by default, surya will recognize math in text.  This can lead to false positives - you can disable this with this flag.
+- `--keep_server` leaves the inference server running after the command exits so later commands reuse it (see [Server lifecycle](#server-lifecycle---keep_server)).  Available on every command.
 
-The `results.json` file will contain a json dictionary where the keys are the input filenames without extensions.  Each value will be a list of dictionaries, one per page of the input document.  Each page dictionary contains:
+The `results.json` file contains a dict keyed by input filename (no extension). Each value is a list of page dicts. Each page dict contains:
 
-- `text_lines` - the detected text and bounding boxes for each line
-  - `text` - the text in the line
-  - `confidence` - the confidence of the model in the detected text (0-1)
-  - `polygon` - the polygon for the text line in (x1, y1), (x2, y2), (x3, y3), (x4, y4) format.  The points are in clockwise order from the top left.
-  - `bbox` - the axis-aligned rectangle for the text line in (x1, y1, x2, y2) format.  (x1, y1) is the top left corner, and (x2, y2) is the bottom right corner.
-  - `chars` - the individual characters in the line
-    - `text` - the text of the character
-    - `bbox` - the character bbox (same format as line bbox)
-    - `polygon` - the character polygon (same format as line polygon)
-    - `confidence` - the confidence of the model in the detected character (0-1)
-    - `bbox_valid` - if the character is a special token or math, the bbox may not be valid
-  - `words` - the individual words in the line (computed from the characters)
-    - `text` - the text of the word
-    - `bbox` - the word bbox (same format as line bbox)
-    - `polygon` - the word polygon (same format as line polygon)
-    - `confidence` - mean character confidence
-    - `bbox_valid` - if the word is a special token or math, the bbox may not be valid
-- `page` - the page number in the file
-- `image_bbox` - the bbox for the image in (x1, y1, x2, y2) format.  (x1, y1) is the top left corner, and (x2, y2) is the bottom right corner.  All line bboxes will be contained within this bbox.
+- `blocks` - per-block OCR results in reading order
+  - `label` - canonicalized layout label (e.g. `Text`, `SectionHeader`, `Table`, `Equation`, `Picture`, `Form`, `PageHeader`, ...). See `surya/layout/label.py:LAYOUT_PRED_RELABEL` for the full canonical-name set.
+  - `raw_label` - original label emitted by the model, before canonicalization
+  - `reading_order` - 0-indexed position in layout output
+  - `html` - block content as HTML (math wrapped in `<math>...</math>`, tables as `<table>...</table>`, etc.). `""` if the block was skipped
+  - `polygon` - 4-corner polygon in `[[x0,y0],[x1,y0],[x1,y1],[x0,y1]]` order
+  - `bbox` - axis-aligned `[x0, y0, x1, y1]` derived from the polygon
+  - `confidence` - mean per-token probability across the block's decode (0-1)
+  - `skipped` - true if the block was a visual label (e.g. Picture) and not OCR'd
+  - `error` - true if the block OCR call failed
+- `image_bbox` - `[0, 0, width, height]` for the page image
 
 **Performance tips**
 
-Setting the `RECOGNITION_BATCH_SIZE` env var properly will make a big difference when using a GPU.  Each batch item will use `40MB` of VRAM, so very high batch sizes are possible.  The default is a batch size `512`, which will use about 20GB of VRAM.  Depending on your CPU core count, it may help, too - the default CPU batch size is `32`.
+- Throughput is governed by the inference backend.  With `vllm`, raise `--max-num-seqs` / `--max-num-batched-tokens` (or `SURYA_INFERENCE_PARALLEL` on the client side) to keep more pages in flight. With `llama.cpp`, set `SURYA_INFERENCE_PARALLEL` to match `--parallel` on `llama-server`.
+- DPI can also impact throughput significantly - you can adjust the DPI settings to make the right throughput/accuracy tradeoff for your usecase.  Try going from 192 to 96 for improved throughput.
+- MTP can also impact latency/throughput - you can adjust the vllm mtp config in settings.
 
 ### From python
 
 ```python
 from PIL import Image
-from surya.foundation import FoundationPredictor
+from surya.inference import SuryaInferenceManager
 from surya.recognition import RecognitionPredictor
-from surya.detection import DetectionPredictor
 
-image = Image.open(IMAGE_PATH)
-foundation_predictor = FoundationPredictor()
-recognition_predictor = RecognitionPredictor(foundation_predictor)
-detection_predictor = DetectionPredictor()
+manager = SuryaInferenceManager()
+recognition_predictor = RecognitionPredictor(manager)
 
-predictions = recognition_predictor([image], det_predictor=detection_predictor)
+# Default: full-page OCR. One VLM call per page. Returns one PageOCRResult per
+# image: `.blocks` (each with label, html, polygon, bbox, confidence, ...) and
+# `.image_bbox` — the same schema as block mode.
+predictions = recognition_predictor([Image.open(IMAGE_PATH)])
+
+# Block mode: pre-run layout, then per-block OCR. Same return schema as above.
+# Auto-selected when `layout_results` is passed.
+from surya.layout import LayoutPredictor
+layout = LayoutPredictor(manager)
+layouts = layout([Image.open(IMAGE_PATH)])
+predictions = recognition_predictor([Image.open(IMAGE_PATH)], layouts)
 ```
 
 
@@ -192,7 +222,7 @@ The `results.json` file will contain a json dictionary where the keys are the in
 
 **Performance tips**
 
-Setting the `DETECTOR_BATCH_SIZE` env var properly will make a big difference when using a GPU.  Each batch item will use `440MB` of VRAM, so very high batch sizes are possible.  The default is a batch size `36`, which will use about 16GB of VRAM.  Depending on your CPU core count, it might help, too - the default CPU batch size is `6`.
+Detection is a torch model. `DETECTOR_BATCH_SIZE` defaults to an auto-picked value at runtime; override the env var to control VRAM usage on GPU and raise it on larger cards.
 
 ### From python
 
@@ -200,11 +230,8 @@ Setting the `DETECTOR_BATCH_SIZE` env var properly will make a big difference wh
 from PIL import Image
 from surya.detection import DetectionPredictor
 
-image = Image.open(IMAGE_PATH)
 det_predictor = DetectionPredictor()
-
-# predictions is a list of dicts, one per image
-predictions = det_predictor([image])
+predictions = det_predictor([Image.open(IMAGE_PATH)])
 ```
 
 ## Layout and reading order
@@ -220,148 +247,114 @@ surya_layout DATA_PATH
 - `--output_dir` specifies the directory to save results to instead of the default
 - `--page_range` specifies the page range to process in the PDF, specified as a single number, a comma separated list, a range, or comma separated ranges - example: `0,5-10,20`.
 
-The `results.json` file will contain a json dictionary where the keys are the input filenames without extensions.  Each value will be a list of dictionaries, one per page of the input document.  Each page dictionary contains:
+The `results.json` file contains a dict keyed by input filename (no extension). Each value is a list of page dicts. Each page dict contains:
 
-- `bboxes` - detected bounding boxes for text
-  - `bbox` - the axis-aligned rectangle for the text line in (x1, y1, x2, y2) format.  (x1, y1) is the top left corner, and (x2, y2) is the bottom right corner.
-  - `polygon` - the polygon for the text line in (x1, y1), (x2, y2), (x3, y3), (x4, y4) format.  The points are in clockwise order from the top left.
-  - `position` - the reading order of the box.
-  - `label` - the label for the bbox.  One of `Caption`, `Footnote`, `Formula`, `List-item`, `Page-footer`, `Page-header`, `Picture`, `Figure`, `Section-header`, `Table`, `Form`, `Table-of-contents`, `Handwriting`, `Text`, `Text-inline-math`.
-  - `top_k` - the top-k other potential labels for the box.  A dictionary with labels as keys and confidences as values.
-- `page` - the page number in the file
-- `image_bbox` - the bbox for the image in (x1, y1, x2, y2) format.  (x1, y1) is the top left corner, and (x2, y2) is the bottom right corner.  All line bboxes will be contained within this bbox.
+- `bboxes` - layout boxes in reading order
+  - `polygon` - 4-corner polygon `[[x0,y0],[x1,y0],[x1,y1],[x0,y1]]`
+  - `bbox` - axis-aligned `[x0, y0, x1, y1]` derived from the polygon
+  - `label` - canonicalized label. One of `Caption`, `Footnote`, `Equation`, `ListGroup`, `PageHeader`, `PageFooter`, `Picture`, `SectionHeader`, `Table`, `Text`, `Figure`, `Code`, `Form`, `TableOfContents`, `ChemicalBlock`, `Diagram`, `Bibliography`, `BlankPage`
+  - `raw_label` - original label emitted by the model
+  - `position` - 0-indexed reading order
+  - `count` - model's token estimate for OCR'ing this block (rounded to multiples of 50; used to size the per-block decode budget)
+  - `confidence` - mean per-token probability across the layout decode (0-1)
+- `image_bbox` - `[0, 0, width, height]`
+- `raw` - raw JSON the layout model emitted, for debugging
+- `error` - true if the layout call failed
 
 **Performance tips**
 
-Setting the `LAYOUT_BATCH_SIZE` env var properly will make a big difference when using a GPU.  Each batch item will use `220MB` of VRAM, so very high batch sizes are possible.  The default is a batch size `32`, which will use about 7GB of VRAM.  Depending on your CPU core count, it might help, too - the default CPU batch size is `4`.
+Layout runs through the shared inference backend. Throughput tuning is the same as OCR — see Performance tips above.
 
 ### From python
 
 ```python
 from PIL import Image
-from surya.foundation import FoundationPredictor
+from surya.inference import SuryaInferenceManager
 from surya.layout import LayoutPredictor
-from surya.settings import settings
 
-image = Image.open(IMAGE_PATH)
-layout_predictor = LayoutPredictor(FoundationPredictor(checkpoint=settings.LAYOUT_MODEL_CHECKPOINT))
-
-# layout_predictions is a list of dicts, one per image
-layout_predictions = layout_predictor([image])
+layout_predictor = LayoutPredictor(SuryaInferenceManager())
+layout_predictions = layout_predictor([Image.open(IMAGE_PATH)])
 ```
 
 ## Table Recognition
 
-This command will write out a json file with the detected table cells and row/column ids, along with row/column bounding boxes.  If you want to get cell positions and text, along with nice formatting, check out the [marker](https://www.github.com/VikParuchuri/marker) repo.  You can use the `TableConverter` to detect and extract tables in images and PDFs.  It supports output in json (with bboxes), markdown, and html.
+This command will write out a json file with the detected table cells and row/column ids, along with row/column bounding boxes.  If you want to get cell positions and text, along with nice formatting, check out the [marker](https://github.com/datalab-to/marker) repo.  You can use the `TableConverter` to detect and extract tables in images and PDFs.  It supports output in json (with bboxes), markdown, and html.
 
 ```shell
 surya_table DATA_PATH
 ```
 
 - `DATA_PATH` can be an image, pdf, or folder of images/pdfs
-- `--images` will save images of the pages and detected table cells + rows and columns (optional)
+- `--images` will save annotated row + column overlays alongside the json (optional)
 - `--output_dir` specifies the directory to save results to instead of the default
 - `--page_range` specifies the page range to process in the PDF, specified as a single number, a comma separated list, a range, or comma separated ranges - example: `0,5-10,20`.
-- `--detect_boxes` specifies if cells should be detected.  By default, they're pulled out of the PDF, but this is not always possible.
 - `--skip_table_detection` tells table recognition not to detect tables first.  Use this if your image is already cropped to a table.
 
-The `results.json` file will contain a json dictionary where the keys are the input filenames without extensions.  Each value will be a list of dictionaries, one per page of the input document.  Each page dictionary contains:
+The `results.json` file contains a dict keyed by input filename (no extension). Each value is a list of per-table dicts. Each table dict contains:
 
-- `rows` - detected table rows
-  - `bbox` - the bounding box of the table row
-  - `row_id` - the id of the row
-  - `is_header` - if it is a header row.
+- `rows` - detected table rows in reading order
+  - `polygon` / `bbox` - row geometry (same convention as everywhere else)
+  - `row_id` - 0-indexed row id
 - `cols` - detected table columns
-  - `bbox` - the bounding box of the table column
-  - `col_id`- the id of the column
-  - `is_header` - if it is a header column
-- `cells` - detected table cells
-  - `bbox` - the axis-aligned rectangle for the text line in (x1, y1, x2, y2) format.  (x1, y1) is the top left corner, and (x2, y2) is the bottom right corner.
-  - `text` - if text could be pulled out of the pdf, the text of this cell.
-  - `row_id` - the id of the row the cell belongs to.
-  - `col_id` - the id of the column the cell belongs to.
-  - `colspan` - the number of columns spanned by the cell.
-  - `rowspan` - the number of rows spanned by the cell.
-  - `is_header` - whether it is a header cell.
-- `page` - the page number in the file
-- `table_idx` - the index of the table on the page (sorted in vertical order)
-- `image_bbox` - the bbox for the image in (x1, y1, x2, y2) format.  (x1, y1) is the top left corner, and (x2, y2) is the bottom right corner.  All line bboxes will be contained within this bbox.
+  - `polygon` / `bbox` - column geometry
+  - `col_id` - 0-indexed column id
+- `cells` - geometric row × column intersections (simple mode)
+  - `polygon` / `bbox` - cell geometry
+  - `row_id`, `col_id`, `cell_id`
+- `html` - full `<table>...</table>` HTML (only populated when `predict_full` is used; handles spanning cells / header rows). `null` in simple mode.
+- `mode` - `"simple"` or `"full"`
+- `image_bbox` - the table crop bbox
+- `error` - true if the table_rec call failed
+- `raw` - raw model output, for debugging
 
 **Performance tips**
 
-Setting the `TABLE_REC_BATCH_SIZE` env var properly will make a big difference when using a GPU.  Each batch item will use `150MB` of VRAM, so very high batch sizes are possible.  The default is a batch size `64`, which will use about 10GB of VRAM.  Depending on your CPU core count, it might help, too - the default CPU batch size is `8`.
+Table recognition routes through the shared VLM. Throughput tuning is the same as OCR.
 
 ### From python
 
 ```python
 from PIL import Image
+from surya.inference import SuryaInferenceManager
 from surya.table_rec import TableRecPredictor
 
-image = Image.open(IMAGE_PATH)
-table_rec_predictor = TableRecPredictor()
+table_rec_predictor = TableRecPredictor(SuryaInferenceManager())
 
-table_predictions = table_rec_predictor([image])
+# Default: rows + columns only, cells derived from intersections.
+table_predictions = table_rec_predictor([Image.open(IMAGE_PATH)])
+
+# Or full HTML output (better for spanning cells / headers):
+# table_predictions = table_rec_predictor.predict_full([image])
 ```
 
-## LaTeX OCR
+## Math / equations
 
-This command will write out a json file with the LaTeX of the equations.  You must pass in images that are already cropped to the equations.  You can do this by running the layout model, then cropping, if you want.
+Surya 2 handles math inline as part of full-page OCR — recognized equations
+come back inside `<math>...</math>` tags in the same HTML output as
+surrounding prose, in KaTeX-compatible LaTeX. No separate LaTeX OCR pass.
 
-```shell
-surya_latex_ocr DATA_PATH
+# Inference Backends
+
+Layout / OCR / table_rec all share one VLM, served either by `vllm` (GPU) or `llama.cpp` (CPU / Apple Silicon). The `SuryaInferenceManager` will spawn one automatically; you can also point at a pre-running server:
+
+```bash
+# Attach to an existing vllm
+export SURYA_INFERENCE_BACKEND=vllm
+export SURYA_INFERENCE_URL=http://localhost:8000/v1
 ```
 
-- `DATA_PATH` can be an image, pdf, or folder of images/pdfs
-- `--output_dir` specifies the directory to save results to instead of the default
-- `--page_range` specifies the page range to process in the PDF, specified as a single number, a comma separated list, a range, or comma separated ranges - example: `0,5-10,20`.
-
-The `results.json` file will contain a json dictionary where the keys are the input filenames without extensions.  Each value will be a list of dictionaries, one per page of the input document.  See the OCR section above for the format of the output.
-
-### From python
-
-```python
-from PIL import Image
-from surya.texify import TexifyPredictor
-
-image = Image.open(IMAGE_PATH)
-predictor = TexifyPredictor()
-
-predictor([image])
-```
-
-### Interactive app
-
-You can also run a special interactive app that lets you select equations and OCR them (kind of like MathPix snip) with:
-
-```shell
-pip install streamlit==1.40 streamlit-drawable-canvas-jsretry
-texify_gui
-```
-
-## Compilation
-
-The following models have support for compilation. You will need to set the following environment variables to enable compilation:
-
-- Detection: `COMPILE_DETECTOR=true`
-- Layout: `COMPILE_LAYOUT=true`
-- Table recognition: `COMPILE_TABLE_REC=true`
-
-Alternatively, you can also set `COMPILE_ALL=true` which will compile all models.
-
-Here are the speedups on an A10 GPU:
-
-| Model             | Time per page (s) | Compiled time per page (s) | Speedup (%) |
-| ----------------- | ----------------- | -------------------------- | ----------- |
-| Detection         | 0.108808          | 0.10521                    | 3.306742151 |
-| Layout            | 0.27319           | 0.27063                    | 0.93707676  |
-| Table recognition | 0.0219            | 0.01938                    | 11.50684932 |
+| Setting                           | Default                           | Notes                                                  |
+|-----------------------------------|-----------------------------------|--------------------------------------------------------|
+| `SURYA_INFERENCE_BACKEND`         | auto (vllm if NVIDIA, else llamacpp) | `vllm` \| `llamacpp` \| unset (auto)                |
+| `SURYA_INFERENCE_URL`             | (auto-spawn)                      | Attach to a running OpenAI-compatible server          |
+| `SURYA_INFERENCE_PARALLEL`        | 8                                 | Client-side concurrency to the backend                |
+| `SURYA_INFERENCE_KEEP_ALIVE`      | false                             | Leave the spawned server up after exit (cf. `--keep_server`) |
+| `SURYA_GUIDED_LAYOUT`             | true                              | JSON-schema-constrained layout decode                 |
 
 # Limitations
 
-- This is specialized for document OCR.  It will likely not work on photos or other images.
-- It is for printed text, not handwriting (though it may work on some handwriting).
-- The text detection model has trained itself to ignore advertisements.
-- You can find language support for OCR in `surya/recognition/languages.py`.  Text detection, layout analysis, and reading order will work with any language.
+- This is specialized for document OCR. Performance on photos or natural scenes is not the goal.
+- Layout / OCR / table_rec all need a running inference backend (vllm or llama.cpp). Detection runs purely on torch and works without it.
 
 ## Troubleshooting
 
@@ -373,233 +366,125 @@ If OCR isn't working properly:
 
 # Manual install
 
-If you want to develop surya, you can install it manually:
+If you want to develop surya, you can install it manually with [uv](https://docs.astral.sh/uv/):
 
-- `git clone https://github.com/VikParuchuri/surya.git`
-- `cd surya`
-- `poetry install` - installs main and dev dependencies
-- `poetry shell` - activates the virtual environment
+```bash
+git clone https://github.com/datalab-to/surya.git
+cd surya
+uv sync --group dev      # installs runtime + dev deps
+uv run surya_ocr ...     # or `source .venv/bin/activate` to enter the venv
+```
 
 # Benchmarks
 
-## OCR
+Surya 2 is a single VLM that handles layout analysis, OCR (full-page or
+per-block), and table recognition in one model. We evaluate end-to-end on
+[olmOCR-bench](https://huggingface.co/datasets/allenai/olmOCR-bench) — the
+standard quality benchmark for document parsers.
 
-![Benchmark chart tesseract](static/images/benchmark_rec_chart.png)
+## olmOCR-bench
 
-| Model     | Time per page (s) | Avg similarity (⬆) |
-|-----------|-------------------|--------------------|
-| surya     | .62               | 0.97               |
-| tesseract | .45               | 0.88               |
+Pareto-optimal on the size-vs-score frontier, and best in class under 3B params.
 
-[Full language results](static/images/rec_acc_table.png)
+| Model                       | Params    | Score    |
+|-----------------------------|----------:|---------:|
+| Infinity-Parser2-Pro        |     35.1B |     87.6 |
+| Chandra OCR 2 (Datalab)     |      5.3B |     85.9 |
+| dots.mocr                   |      3.0B |     83.9 |
+| **Surya OCR 2** (Datalab)   | **0.65B** | **83.3** |
+| LightOnOCR 2-1B \*          |      1.0B |     83.2 |
+| Chandra OCR 1 (Datalab)     |      9.0B |     83.1 |
+| olmOCR (anchored)           |      8.3B |     77.4 |
+| GOT OCR                     |      0.6B |     48.3 |
 
-Tesseract is CPU-based, and surya is CPU or GPU.  I tried to cost-match the resources used, so I used a 1xA6000 (48GB VRAM) for surya, and 28 CPU cores for Tesseract (same price on Lambda Labs/DigitalOcean).
+\* **LightOnOCR 2-1B** uses a different benchmark methodology than the other entries (see their [release notes](https://huggingface.co/lightonai/LightOnOCR-2-1B)); the score is included for context but is not directly comparable.
 
-### Google Cloud Vision
+Comparison scores from the [olmOCR-bench dataset card](https://huggingface.co/datasets/allenai/olmOCR-bench).
 
-I benchmarked OCR against Google Cloud vision since it has similar language coverage to Surya.
+Surya 2, per-source pass rate on the `default` preset (8,413 tests total):
 
-![Benchmark chart google cloud](static/images/gcloud_rec_bench.png)
+| ArXiv | Base | Hdr/Ftr | TinyTxt | MultCol | OldScan | OldMath | Tables |
+|------:|-----:|--------:|--------:|--------:|--------:|--------:|-------:|
+|  88.3 | 99.7 |    92.5 |    93.7 |    82.4 |    41.8 |    81.4 |   86.6 |
 
-[Full language results](static/images/gcloud_full_langs.png)
+## Multilingual
 
-**Methodology**
+We also evaluate Surya 2 against a 91-language internal benchmark covering
+text accuracy, layout, tables, math, and reading order in documents drawn
+from each language.
 
-I measured normalized sentence similarity (0-1, higher is better) based on a set of real-world and synthetic pdfs.  I sampled PDFs from common crawl, then filtered out the ones with bad OCR.  I couldn't find PDFs for some languages, so I also generated simple synthetic PDFs for those.
+**Overall pass rate: 87.2% across 91 languages.** 38 of the
+91 languages score ≥ 90%; 76 score ≥ 80%.
 
-I used the reference line bboxes from the PDFs with both tesseract and surya, to just evaluate the OCR quality.
+Top 15 widely-spoken languages:
 
-For Google Cloud, I aligned the output from Google Cloud with the ground truth.  I had to skip RTL languages since they didn't align well.
+| Code | Language    | Score |
+|------|-------------|------:|
+| `ar` | Arabic      | 72.7% |
+| `bn` | Bengali     | 82.7% |
+| `zh` | Chinese     | 82.5% |
+| `en` | English     | 92.3% |
+| `fr` | French      | 89.3% |
+| `de` | German      | 89.7% |
+| `hi` | Hindi       | 82.2% |
+| `it` | Italian     | 93.0% |
+| `ja` | Japanese    | 86.2% |
+| `ko` | Korean      | 86.7% |
+| `fa` | Persian     | 82.3% |
+| `pt` | Portuguese  | 86.1% |
+| `ru` | Russian     | 88.8% |
+| `es` | Spanish     | 90.7% |
+| `vi` | Vietnamese  | 73.2% |
 
-## Text line detection
+See [static/docs/multilingual.md](static/docs/multilingual.md) for the full 91-language table.
 
-![Benchmark chart](static/images/benchmark_chart_small.png)
+## Throughput
 
-| Model     | Time (s)   | Time per page (s)   | precision   |   recall |
-|-----------|------------|---------------------|-------------|----------|
-| surya     | 47.2285    | 0.094452            | 0.835857    | 0.960807 |
-| tesseract | 74.4546    | 0.290838            | 0.631498    | 0.997694 |
+Full-page OCR, 96 DPI input (~2,400 output tokens/page average), measured
+client-side against a running inference server.
 
+### RTX 5090 (vllm)
 
-Tesseract is CPU-based, and surya is CPU or GPU.  I ran the benchmarks on a system with an A10 GPU, and a 32 core CPU.  This was the resource usage:
+`vllm/vllm-openai:v0.20.1`, single RTX 5090 (32 GB).
 
-- tesseract - 32 CPU cores, or 8 workers using 4 cores each
-- surya - 36 batch size, for 16GB VRAM usage
+| Concurrency | Pages/s |  Tokens/s | p50 (ms) | p95 (ms) | avg tok/page |
+|------------:|--------:|----------:|---:|---:|---:|
+|         128 |    5.35 |    12,884 | 18,915 | 42,538 | 2,410 |
 
-**Methodology**
+### Apple Silicon (llama.cpp / Metal)
 
-Surya predicts line-level bboxes, while tesseract and others predict word-level or character-level.  It's hard to find 100% correct datasets with line-level annotations. Merging bboxes can be noisy, so I chose not to use IoU as the metric for evaluation.
+`llama-server` with Metal backend.
 
-I instead used coverage, which calculates:
+| `--parallel` |  Pages/s | Tokens/s | p50 (ms) | p95 (ms) | avg tok/page | Power |
+|-------------:|---------:|---------:|---:|---:|---:|---:|
+|            8 |    0.108 |      254 | 59,313 | 129,173 | 2,360 | ~30 W |
 
-- Precision - how well the predicted bboxes cover ground truth bboxes
-- Recall - how well ground truth bboxes cover predicted bboxes
+## Reproducing
 
-First calculate coverage for each bbox, then add a small penalty for double coverage, since we want the detection to have non-overlapping bboxes.  Anything with a coverage of 0.5 or higher is considered a match.
-
-Then we calculate precision and recall for the whole dataset.
-
-## Layout analysis
-
-| Layout Type   |   precision |   recall |
-|---------------|-------------|----------|
-| Image         |     0.91265 |  0.93976 |
-| List          |     0.80849 |  0.86792 |
-| Table         |     0.84957 |  0.96104 |
-| Text          |     0.93019 |  0.94571 |
-| Title         |     0.92102 |  0.95404 |
-
-Time per image - .13 seconds on GPU (A10).
-
-**Methodology**
-
-I benchmarked the layout analysis on [Publaynet](https://github.com/ibm-aur-nlp/PubLayNet), which was not in the training data.  I had to align publaynet labels with the surya layout labels.  I was then able to find coverage for each layout type:
-
-- Precision - how well the predicted bboxes cover ground truth bboxes
-- Recall - how well ground truth bboxes cover predicted bboxes
-
-## Reading Order
-
-88% mean accuracy, and .4 seconds per image on an A10 GPU.  See methodology for notes - this benchmark is not perfect measure of accuracy, and is more useful as a sanity check.
-
-**Methodology**
-
-I benchmarked the reading order on the layout dataset from [here](https://www.icst.pku.edu.cn/cpdp/sjzy/), which was not in the training data.  Unfortunately, this dataset is fairly noisy, and not all the labels are correct.  It was very hard to find a dataset annotated with reading order and also layout information.  I wanted to avoid using a cloud service for the ground truth.
-
-The accuracy is computed by finding if each pair of layout boxes is in the correct order, then taking the % that are correct.
-
-## Table Recognition
-
-| Model             |   Row Intersection |   Col Intersection |   Time Per Image |
-|-------------------|--------------------|--------------------|------------------|
-| Surya             |               1    |            0.98625 |          0.30202 |
-| Table transformer |               0.84 |            0.86857 |          0.08082 |
-
-Higher is better for intersection, which the percentage of the actual row/column overlapped by the predictions.  This benchmark is mostly a sanity check - there is a more rigorous one in [marker](https://www.github.com/VikParuchuri/marker)
-
-**Methodology**
-
-The benchmark uses a subset of [Fintabnet](https://developer.ibm.com/exchanges/data/all/fintabnet/) from IBM.  It has labeled rows and columns.  After table recognition is run, the predicted rows and columns are compared to the ground truth.  There is an additional penalty for predicting too many or too few rows/columns.
-
-## LaTeX OCR
-
-| Method | edit ⬇   | time taken (s) ⬇ |
-|--------|----------|------------------|
-| texify | 0.122617 | 35.6345          |
-
-This inferences texify on a ground truth set of LaTeX, then does edit distance.  This is a bit noisy, since 2 LaTeX strings that render the same can have different symbols in them.
-
-## Running your own benchmarks
-
-You can benchmark the performance of surya on your machine.
-
-- Follow the manual install instructions above.
-- `poetry install --group dev` - installs dev dependencies
-
-**Text line detection**
-
-This will evaluate tesseract and surya for text line detection across a randomly sampled set of images from [doclaynet](https://huggingface.co/datasets/vikp/doclaynet_bench).
-
-```shell
-python benchmark/detection.py --max_rows 256
-```
-
-- `--max_rows` controls how many images to process for the benchmark
-- `--debug` will render images and detected bboxes
-- `--pdf_path` will let you specify a pdf to benchmark instead of the default data
-- `--results_dir` will let you specify a directory to save results to instead of the default one
-
-**Text recognition**
-
-This will evaluate surya and optionally tesseract on multilingual pdfs from common crawl (with synthetic data for missing languages).
-
-```shell
-python benchmark/recognition.py --tesseract
-```
-
-- `--max_rows` controls how many images to process for the benchmark
-- `--debug 2` will render images with detected text
-- `--results_dir` will let you specify a directory to save results to instead of the default one
-- `--tesseract` will run the benchmark with tesseract.  You have to run `sudo apt-get install tesseract-ocr-all` to install all tesseract data, and set `TESSDATA_PREFIX` to the path to the tesseract data folder.
-
-- Set `RECOGNITION_BATCH_SIZE=864` to use the same batch size as the benchmark.
-- Set `RECOGNITION_BENCH_DATASET_NAME=vikp/rec_bench_hist` to use the historical document data for benchmarking.  This data comes from the [tapuscorpus](https://github.com/HTR-United/tapuscorpus).
-
-**Layout analysis**
-
-This will evaluate surya on the publaynet dataset.
-
-```shell
-python benchmark/layout.py
-```
-
-- `--max_rows` controls how many images to process for the benchmark
-- `--debug` will render images with detected text
-- `--results_dir` will let you specify a directory to save results to instead of the default one
-
-**Reading Order**
-
-```shell
-python benchmark/ordering.py
-```
-
-- `--max_rows` controls how many images to process for the benchmark
-- `--debug` will render images with detected text
-- `--results_dir` will let you specify a directory to save results to instead of the default one
-
-**Table Recognition**
-
-```shell
-python benchmark/table_recognition.py --max_rows 1024 --tatr
-```
-
-- `--max_rows` controls how many images to process for the benchmark
-- `--debug` will render images with detected text
-- `--results_dir` will let you specify a directory to save results to instead of the default one
-- `--tatr` specifies whether to also run table transformer
-
-**LaTeX OCR**
-
-```shell
-python benchmark/texify.py --max_rows 128
-```
-
-- `--max_rows` controls how many images to process for the benchmark
-- `--results_dir` will let you specify a directory to save results to instead of the default one
+We score Surya 2 on olmOCR-bench by serving the model with `vllm` (or
+`llama.cpp`) and running the olmOCR-bench harness from
+[allenai/olmocr](https://github.com/allenai/olmocr), with some adjustments applied to account for our output HTML format.
 
 # Training
 
-Text detection was trained on 4x A6000s for 3 days.  It used a diverse set of images as training data.  It was trained from scratch using a modified efficientvit architecture for semantic segmentation.
+Layout, OCR, and table recognition all share a single vision-language model
+(Qwen3.5-style architecture, ~650M params). It's trained on diverse document
+images to emit either a layout JSON or a full-page HTML output, depending on
+prompt. Text-line detection is a separate small torch model — a modified
+EfficientViT segformer trained from scratch on document line annotations.
 
-Text recognition was trained on 4x A6000s for 2 weeks.  It was trained using a modified donut model (GQA, MoE layer, UTF-16 decoding, layer config changes).
-
-# Finetuning Surya OCR
-You can now take Surya OCR further by training it on your own data with our [finetuning script](/surya/scripts/finetune_ocr.py).
-It’s built on Hugging Face Trainer, and supports all the [arguments](https://huggingface.co/docs/transformers/en/main_classes/trainer#transformers.TrainingArguments) that the huggingface trainer provides, and integrations like torchrun, or deepspeed.
-
-To setup your dataset, follow the example dataset format [here](https://huggingface.co/datasets/datalab-to/ocr_finetune_example) and provide the path to your own dataset when launching the training script.
-```bash
-# Tested on 1xH100 GPU
-# Set --pretrained_checkpoint_path to load from a custom checkpoint, otherwise
-# the default surya ocr weights will be loaded as the initialization
-python surya/scripts/finetune_ocr.py \
-  --output_dir $OUTPUT_DIR \
-  --dataset_name datalab-to/ocr_finetune_example \
-  --per_device_train_batch_size 64 \
-  --gradient_checkpointing true \
-  --max_sequence_length 1024
-```
-
-This is a minimal training script to get you started finetuning Surya. Our internal training stack includes character bounding box finetuning, sliding window attention with specialized attention masks, custom kernels, augmentations, and other optimizations that can push OCR accuracy well beyond standard finetuning. If you want to get the most out of your data, reach us at hi@datalab.to!
+If you want help finetuning Surya on your own data, or to use our managed
+training stack, reach us at hi@datalab.to.
 
 # Thanks
 
 This work would not have been possible without amazing open source AI work:
 
+- [Qwen3-VL](https://huggingface.co/Qwen) from Alibaba
+- [vllm](https://github.com/vllm-project/vllm) and [llama.cpp](https://github.com/ggerganov/llama.cpp) for inference
 - [Segformer](https://arxiv.org/pdf/2105.15203.pdf) from NVIDIA
 - [EfficientViT](https://github.com/mit-han-lab/efficientvit) from MIT
 - [timm](https://github.com/huggingface/pytorch-image-models) from Ross Wightman
-- [Donut](https://github.com/clovaai/donut) from Naver
 - [transformers](https://github.com/huggingface/transformers) from huggingface
 - [CRAFT](https://github.com/clovaai/CRAFT-pytorch), a great scene text detection model
 
@@ -614,6 +499,6 @@ If you use surya (or the associated models) in your work or research, please con
   author       = {Vikas Paruchuri and Datalab Team},
   title        = {Surya: A lightweight document OCR and analysis toolkit},
   year         = {2025},
-  howpublished = {\url{https://github.com/VikParuchuri/surya}},
+  howpublished = {\url{https://github.com/datalab-to/surya}},
   note         = {GitHub repository},
 }

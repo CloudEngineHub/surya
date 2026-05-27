@@ -7,7 +7,6 @@ from surya.settings import settings
 import os
 import filetype
 from PIL import Image
-import json
 
 logger = get_logger()
 
@@ -76,9 +75,3 @@ def load_from_folder(
                 logger.warning(f"Could not load image {path}")
                 continue
     return images, names
-
-
-def load_lang_file(lang_path, names):
-    with open(lang_path, "r") as f:
-        lang_dict = json.load(f)
-    return [lang_dict[name].copy() for name in names]
